@@ -573,3 +573,172 @@ html, body {
   #achievements-sidebar, #system-panel { display: none; }
   #achievement-toast { top: auto; bottom: 30px; right: 15px; left: 15px; }
 }
+
+/* ========== 좌측 패널 이벤트 카드 스타일 (v2) ========== */
+
+/* 시스템 정상 상태 */
+.effect-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(0, 255, 65, 0.05);
+  border: 1px solid rgba(0, 255, 65, 0.2);
+  border-radius: 4px;
+  color: var(--success);
+  font-size: 13px;
+}
+
+.effect-status-icon {
+  font-size: 16px;
+}
+
+/* 이벤트 카드 */
+.effect-card {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 170, 0, 0.08);
+  border-left: 3px solid var(--warning);
+  animation: effect-pulse 2s infinite;
+  margin-bottom: 8px;
+}
+
+.effect-card.error {
+  background: rgba(255, 60, 60, 0.1);
+  border-left-color: var(--error);
+  animation: effect-pulse-danger 1.5s infinite;
+}
+
+.effect-card.warning {
+  background: rgba(255, 170, 0, 0.08);
+  border-left-color: var(--warning);
+}
+
+.effect-card.info {
+  background: rgba(0, 200, 255, 0.08);
+  border-left-color: #0cf;
+}
+
+/* 이벤트 헤더 */
+.effect-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.effect-icon {
+  font-size: 14px;
+}
+
+.effect-name {
+  flex: 1;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+
+.effect-timer {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  min-width: 24px;
+  text-align: right;
+}
+
+/* 진행 바 */
+.effect-bar-bg {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.effect-bar {
+  height: 100%;
+  background: var(--warning);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.effect-card.error .effect-bar {
+  background: var(--error);
+}
+
+.effect-card.info .effect-bar {
+  background: #0cf;
+}
+
+/* 상세 정보 */
+.effect-detail {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* 애니메이션 */
+@keyframes effect-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes effect-pulse-danger {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 rgba(255, 60, 60, 0); }
+  50% { opacity: 0.9; box-shadow: 0 0 8px rgba(255, 60, 60, 0.3); }
+}
+
+/* 플래시 효과 */
+.flash-warning { animation: flash-warning 0.3s ease-out; }
+.flash-error { animation: flash-error 0.3s ease-out; }
+.flash-success { animation: flash-success 0.3s ease-out; }
+
+@keyframes flash-warning {
+  0% { background-color: rgba(255, 170, 0, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-error {
+  0% { background-color: rgba(255, 60, 60, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-success {
+  0% { background-color: rgba(0, 255, 65, 0.3); }
+  100% { background-color: transparent; }
+}
+
+/* 시스템 로그 메시지 개선 */
+.system-msg {
+  padding: 6px 10px;
+  font-size: 11px;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  border-left: 2px solid transparent;
+}
+
+.system-msg.info {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+  border-left-color: var(--text-dim);
+}
+
+.system-msg.warning {
+  color: var(--warning);
+  background: rgba(255, 170, 0, 0.08);
+  border-left-color: var(--warning);
+}
+
+.system-msg.error {
+  color: var(--error);
+  background: rgba(255, 60, 60, 0.1);
+  border-left-color: var(--error);
+}
+
+.system-msg.success {
+  color: var(--success);
+  background: rgba(0, 255, 65, 0.08);
+  border-left-color: var(--success);
+}
