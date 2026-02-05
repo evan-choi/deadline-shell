@@ -12,6 +12,7 @@
   --border: #1A3D1A;
   --warning: #FFE66D;
   --danger: #FF4D4D;
+  --gold: #FFD700;
   
   /* CRT Effect Variables (controlled by JS) */
   --glow-blur: 2px;
@@ -52,6 +53,20 @@ html, body {
 }
 
 /* ========================================
+   Main Layout (Terminal + Sidebar)
+   ======================================== */
+
+#main-layout {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  max-width: 1100px;
+  height: 100%;
+  max-height: 650px;
+  padding: 16px;
+}
+
+/* ========================================
    CRT Overlay (Canvas)
    ======================================== */
 
@@ -88,10 +103,10 @@ html, body {
 
 #terminal {
   position: relative;
-  width: 100%;
-  max-width: 800px;
+  flex: 1;
+  min-width: 0;
+  max-width: 750px;
   height: 100%;
-  max-height: 600px;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -287,6 +302,230 @@ html, body {
 }
 
 /* ========================================
+   Achievements Sidebar
+   ======================================== */
+
+#achievements-sidebar {
+  width: 220px;
+  height: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  font-size: 12px;
+  
+  /* CRT Glow (dimmer) */
+  text-shadow:
+    0 0 1px rgba(156, 255, 156, 0.3),
+    0 0 4px rgba(156, 255, 156, 0.1);
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-weight: bold;
+  color: var(--gold);
+}
+
+.sidebar-progress {
+  color: var(--crt-green-dim);
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.section-title {
+  color: var(--crt-green-dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.achievement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.achievement-item {
+  padding: 6px 8px;
+  background: var(--bg-light);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.achievement-item.unlocked {
+  border-color: var(--gold);
+  background: rgba(255, 215, 0, 0.05);
+}
+
+.achievement-item.unlocked .achievement-icon {
+  color: var(--gold);
+}
+
+.achievement-item.new {
+  animation: achievement-glow 1s ease-out;
+}
+
+@keyframes achievement-glow {
+  0% {
+    box-shadow: 0 0 10px var(--gold);
+    border-color: var(--gold);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+.achievement-name {
+  font-size: 11px;
+  color: var(--crt-green);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.achievement-icon {
+  font-size: 12px;
+}
+
+.achievement-desc {
+  font-size: 10px;
+  color: var(--crt-green-dim);
+  margin-top: 2px;
+}
+
+.achievement-reward {
+  font-size: 10px;
+  color: var(--warning);
+  margin-top: 2px;
+}
+
+.empty-message {
+  color: var(--crt-green-dim);
+  font-style: italic;
+  padding: 4px;
+}
+
+/* Stats in sidebar */
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.stat-label {
+  color: var(--crt-green-dim);
+}
+
+.stat-value {
+  color: var(--crt-green);
+  font-weight: bold;
+}
+
+/* ========================================
+   Achievement Toast (Popup)
+   ======================================== */
+
+#achievement-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--bg);
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+  z-index: 2000;
+  animation: toast-in 0.5s ease-out;
+}
+
+#achievement-toast.hidden {
+  display: none;
+}
+
+#achievement-toast.fade-out {
+  animation: toast-out 0.5s ease-in forwards;
+}
+
+@keyframes toast-in {
+  0% {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+}
+
+.toast-icon {
+  font-size: 32px;
+  animation: toast-bounce 0.5s ease-out;
+}
+
+@keyframes toast-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+
+.toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toast-title {
+  font-size: 10px;
+  color: var(--crt-green-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.toast-name {
+  font-size: 14px;
+  color: var(--gold);
+  font-weight: bold;
+}
+
+.toast-reward {
+  font-size: 12px;
+  color: var(--warning);
+}
+
+/* ========================================
    States & Modifiers
    ======================================== */
 
@@ -326,10 +565,33 @@ html, body {
    Responsive
    ======================================== */
 
-@media (max-width: 600px) {
-  #terminal {
+@media (max-width: 900px) {
+  #main-layout {
+    flex-direction: column;
     max-height: none;
-    height: 100%;
+  }
+  
+  #achievements-sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 150px;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  .sidebar-section {
+    flex: 1;
+    min-width: 150px;
+  }
+}
+
+@media (max-width: 600px) {
+  #main-layout {
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  #terminal {
     padding: 12px;
   }
   
@@ -339,5 +601,16 @@ html, body {
   
   .resource .bar {
     width: 40px;
+  }
+  
+  #achievements-sidebar {
+    display: none;
+  }
+  
+  #achievement-toast {
+    top: auto;
+    bottom: 20px;
+    right: 10px;
+    left: 10px;
   }
 }
