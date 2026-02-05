@@ -1,6 +1,10 @@
 /**
  * Game - Core game logic for DEADLINE SHELL
+ * 커맨드는 영어, 설명은 한글
  */
+
+import { MSG } from './messages.js';
+import { Tutorial } from './Tutorial.js';
 
 export class Game {
   constructor({ outputEl, inputEl, promptEl, hudEl, terminalEl, crt }) {
@@ -27,6 +31,7 @@ export class Game {
       enemy: {
         distance: 5,
       },
+      doorLocked: false,
     };
     
     // Tick interval (1 second)
@@ -36,6 +41,9 @@ export class Game {
     this.history = [];
     this.historyIndex = -1;
     
+    // Tutorial system
+    this.tutorial = new Tutorial(this);
+    
     // Bind input handler
     this.inputEl.addEventListener('keydown', (e) => this.handleInput(e));
   }
@@ -43,7 +51,15 @@ export class Game {
   start() {
     this.state.running = true;
     this.state.paused = false;
-    this.tickInterval = setInterval(() => this.tick(), 1000);
+    
+    // 인트로 출력
+    this.tutorial.showIntro();
+    
+    // 인트로 후 틱 시작 (3초 후)
+    setTimeout(() => {
+      this.tickInterval = setInterval(() => this.tick(), 1000);
+    }, 3000);
+    
     this.updateHUD();
     this.inputEl.focus();
   }
@@ -114,16 +130,35 @@ export class Game {
         this.historyIndex = this.history.length;
         this.inputEl.value = '';
       }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      this.autoComplete();
+    }
+  }
+  
+  autoComplete() {
+    const input = this.inputEl.value.toLowerCase();
+    const commands = ['help', 'status', 'scan', 'cd', 'ls', 'map', 'logs', 'hide', 'repair', 'lock', 'unlock'];
+    const match = commands.find(cmd => cmd.startsWith(input));
+    if (match) {
+      this.inputEl.value = match;
     }
   }
   
   executeCommand(command) {
     this.print(`> ${command}`);
     
-    const [cmd, ...args] = command.toLowerCase().split(' ');
+    const parts = command.toLowerCase().split(' ');
+    const cmd = parts[0];
+    const args = parts.slice(1);
+    
+    // 복합 커맨드 체크 (lock door, unlock door)
+    const fullCmd = parts.slice(0, 2).join(' ');
     
     // Add noise for any command
     this.state.resources.noise = Math.min(100, this.state.resources.noise + 2);
+    
+    let success = true;
     
     switch (cmd) {
       case 'help':
@@ -136,11 +171,44 @@ export class Game {
         this.cmdScan();
         break;
       case 'cd':
-        this.cmdCd(args[0]);
+        success = this.cmdCd(args[0]);
+        break;
+      case 'ls':
+        this.cmdLs();
+        break;
+      case 'map':
+        this.cmdMap();
+        break;
+      case 'hide':
+        this.cmdHide();
+        break;
+      case 'lock':
+        if (args[0] === 'door') {
+          this.cmdLockDoor();
+        } else {
+          this.print(MSG.CMD_NOT_FOUND(cmd), 'error');
+          success = false;
+        }
+        break;
+      case 'unlock':
+        if (args[0] === 'door') {
+          this.cmdUnlockDoor();
+        } else {
+          this.print(MSG.CMD_NOT_FOUND(cmd), 'error');
+          success = false;
+        }
         break;
       default:
-        this.print(`Command not found: ${cmd}`, 'error');
+        this.print(MSG.CMD_NOT_FOUND(cmd), 'error');
         this.triggerError();
+        success = false;
+    }
+    
+    // Tutorial 업데이트
+    if (success) {
+      this.tutorial.onCommand(command.toLowerCase());
+    } else {
+      this.tutorial.onError();
     }
     
     this.updateHUD();
@@ -148,43 +216,153 @@ export class Game {
   }
   
   cmdHelp() {
-    this.print('Available commands:', 'system');
-    this.print('  help     - Show this help');
-    this.print('  status   - Show current status');
-    this.print('  scan     - Scan surroundings');
-    this.print('  cd <room> - Move to room');
+    this.print(MSG.HELP_HEADER, 'system');
+    this.print('');
+    for (const [cmd, desc] of Object.entries(MSG.HELP_CMDS)) {
+      this.print(`  ${cmd.padEnd(12)} - ${desc}`);
+    }
   }
   
   cmdStatus() {
     const { resources, location, permission } = this.state;
-    this.print(`Location: ${location}`);
-    this.print(`Permission: ${permission}`);
+    const roomKr = MSG.ROOMS[location] || location;
+    const permKr = MSG.PERMISSION[permission] || permission;
+    
+    this.print(MSG.STATUS_HEADER, 'system');
+    this.print(`${MSG.STATUS_LOCATION}: ${roomKr} (${location})`);
+    this.print(`${MSG.STATUS_PERMISSION}: ${permKr} (${permission})`);
+    this.print('');
     this.print(`HP: ${resources.hp}  O2: ${resources.o2}%`);
-    this.print(`Power: ${resources.power}  Noise: ${resources.noise}`);
+    this.print(`전력: ${resources.power}  소음: ${resources.noise}`);
   }
   
   cmdScan() {
     this.state.resources.noise = Math.min(100, this.state.resources.noise + 2);
-    this.print('Scanning...', 'system');
-    this.print(`Enemy distance: ${this.state.enemy.distance}`, 
-      this.state.enemy.distance <= 2 ? 'warning' : 'system');
+    this.print(MSG.SCAN_START, 'system');
+    
+    const dist = this.state.enemy.distance;
+    let msg, type;
+    
+    if (dist >= 5) {
+      msg = MSG.SCAN_ENEMY_FAR;
+      type = 'success';
+    } else if (dist >= 3) {
+      msg = MSG.SCAN_ENEMY_APPROACHING;
+      type = 'warning';
+    } else if (dist >= 1) {
+      msg = MSG.SCAN_ENEMY_NEAR;
+      type = 'error';
+    } else {
+      msg = MSG.SCAN_ENEMY_CRITICAL;
+      type = 'error';
+    }
+    
+    this.print(msg, type);
+    this.print(`(거리: ${dist})`, 'system');
   }
   
   cmdCd(room) {
     if (!room) {
-      this.print('Usage: cd <room>', 'error');
-      return;
+      this.print(MSG.MOVE_USAGE, 'error');
+      return false;
     }
     
     const rooms = ['hub', 'reactor', 'medbay', 'storage', 'security', 'airlock'];
     if (rooms.includes(room)) {
       this.state.location = room;
       this.state.resources.noise = Math.min(100, this.state.resources.noise + 1);
-      this.print(`Moved to ${room}`, 'success');
+      const roomKr = MSG.ROOMS[room] || room;
+      this.print(MSG.MOVE_SUCCESS(room, roomKr), 'success');
+      return true;
     } else {
-      this.print(`Unknown room: ${room}`, 'error');
+      this.print(MSG.MOVE_UNKNOWN(room), 'error');
       this.triggerError();
+      return false;
     }
+  }
+  
+  cmdLs() {
+    const { location } = this.state;
+    const roomKr = MSG.ROOMS[location] || location;
+    
+    this.print(MSG.LS_HEADER, 'system');
+    this.print(`현재 위치: ${roomKr}`, 'system');
+    this.print('');
+    
+    // 방별 아이템 (간단히)
+    const items = {
+      hub: ['터미널', '비상 지도'],
+      reactor: ['원자로 제어판', '공구함'],
+      medbay: ['의료 키트', '산소 캔'],
+      storage: ['부품 상자', '배터리'],
+      security: ['보안 콘솔', '키카드'],
+      airlock: ['탈출 해치', '우주복'],
+    };
+    
+    const roomItems = items[location] || [];
+    if (roomItems.length > 0) {
+      this.print(MSG.LS_ITEMS);
+      roomItems.forEach(item => this.print(`  - ${item}`));
+    } else {
+      this.print(MSG.LS_NOTHING);
+    }
+  }
+  
+  cmdMap() {
+    this.print(MSG.MAP_HEADER, 'system');
+    this.print('');
+    this.print('    [reactor]---[hub]---[medbay]');
+    this.print('                  |');
+    this.print('              [storage]');
+    this.print('                  |');
+    this.print('             [security]');
+    this.print('                  |');
+    this.print('             [airlock]');
+    this.print('');
+    
+    const roomKr = MSG.ROOMS[this.state.location] || this.state.location;
+    this.print(MSG.MAP_CURRENT(`${roomKr}`), 'success');
+  }
+  
+  cmdHide() {
+    const { enemy, resources } = this.state;
+    
+    // 숨기 성공: 소음 초기화, 적 거리 +2
+    resources.noise = 0;
+    enemy.distance = Math.min(5, enemy.distance + 2);
+    
+    this.print(MSG.HIDE_SUCCESS, 'success');
+    
+    // 숨는 동안 시간이 지남
+    this.state.time += 2;
+  }
+  
+  cmdLockDoor() {
+    const { resources, doorLocked } = this.state;
+    
+    if (doorLocked) {
+      this.print(MSG.DOOR_ALREADY_LOCKED, 'warning');
+      return;
+    }
+    
+    if (resources.power < 5) {
+      this.print(MSG.DOOR_NO_POWER, 'error');
+      return;
+    }
+    
+    resources.power -= 5;
+    this.state.doorLocked = true;
+    this.print(MSG.DOOR_LOCKED, 'success');
+  }
+  
+  cmdUnlockDoor() {
+    if (!this.state.doorLocked) {
+      this.print(MSG.DOOR_ALREADY_UNLOCKED, 'warning');
+      return;
+    }
+    
+    this.state.doorLocked = false;
+    this.print(MSG.DOOR_UNLOCKED, 'success');
   }
   
   print(text, type = '') {
@@ -252,18 +430,20 @@ export class Game {
   
   gameOver() {
     this.pause();
+    this.tutorial.destroy();
+    
     this.print('', 'system');
-    this.print('========== GAME OVER ==========', 'error');
+    this.print(MSG.GAME_OVER, 'error');
     
     if (this.state.resources.o2 <= 0) {
-      this.print('You suffocated.', 'error');
+      this.print(MSG.DEATH_O2, 'error');
     } else if (this.state.resources.hp <= 0) {
-      this.print('You died.', 'error');
+      this.print(MSG.DEATH_HP, 'error');
     } else if (this.state.enemy.distance === 0) {
-      this.print('The Stalker found you.', 'error');
+      this.print(MSG.DEATH_ENEMY, 'error');
     }
     
     this.print('', 'system');
-    this.print('Refresh to try again.', 'system');
+    this.print(MSG.RETRY, 'system');
   }
 }
