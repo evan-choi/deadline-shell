@@ -1,7 +1,6 @@
 /**
- * Tutorial - 강제 단계형 튜토리얼
- * 첫 런: 정해진 순서대로만 진행
- * 완료 후: 자유 플레이 + 힌트 시스템
+ * Tutorial - 강제 단계형 튜토리얼 (확장판)
+ * 탈출까지 가이드 + 부드러운 차단 메시지
  */
 
 import { MSG } from './messages.js';
@@ -22,7 +21,6 @@ export class Tutorial {
         onComplete: () => {
           this.game.print('');
           this.game.print('[튜토리얼] 좋습니다! HP, O2, 전력, 소음 상태를 확인했습니다.', 'success');
-          this.game.print('[튜토리얼] 소음이 높으면 적이 접근합니다. 주의하세요.', 'system');
         },
       },
       {
@@ -32,8 +30,7 @@ export class Tutorial {
         hint: 'scan 을 입력하세요.',
         onComplete: () => {
           this.game.print('');
-          this.game.print('[튜토리얼] 적과의 거리를 확인했습니다.', 'success');
-          this.game.print('[튜토리얼] 거리가 0이 되면 게임 오버입니다!', 'warning');
+          this.game.print('[튜토리얼] 적과의 거리를 확인했습니다. (거리 0 = 사망)', 'warning');
         },
       },
       {
@@ -43,32 +40,19 @@ export class Tutorial {
         hint: 'map 을 입력하세요.',
         onComplete: () => {
           this.game.print('');
-          this.game.print('[튜토리얼] 정거장 지도를 확인했습니다.', 'success');
           this.game.print('[튜토리얼] 🔒 표시는 잠긴 구역입니다.', 'system');
         },
       },
       {
-        id: 'move',
-        instruction: 'storage 로 이동하세요.',
-        command: 'cd storage',
-        hint: 'cd storage 를 입력하세요.',
-        validate: (cmd) => cmd === 'cd storage',
-        onComplete: () => {
-          this.game.print('');
-          this.game.print('[튜토리얼] 다른 방으로 이동했습니다!', 'success');
-          this.game.print('[튜토리얼] 이동하면 소음이 발생합니다.', 'system');
-        },
-      },
-      {
-        id: 'move2',
-        instruction: 'security 로 이동하세요. (권한 획득 장소)',
+        id: 'move_security',
+        instruction: '보안실(security)로 이동하세요. (권한 획득 필요)',
         command: 'cd security',
-        hint: 'cd security 를 입력하세요.',
+        hint: 'hub → storage → security 순서지만, 지금은 cd security 로 이동해봅니다.',
+        // 튜토리얼 편의를 위해 바로 이동 허용 (Game.js에서 처리 필요하지만 여기선 명령만 체크)
         validate: (cmd) => cmd === 'cd security',
         onComplete: () => {
           this.game.print('');
           this.game.print('[튜토리얼] 보안실에 도착했습니다.', 'success');
-          this.game.print('[튜토리얼] 여기서 권한을 획득할 수 있습니다.', 'warning');
         },
       },
       {
@@ -79,29 +63,54 @@ export class Tutorial {
         validate: (cmd) => cmd === 'login engineer',
         onComplete: () => {
           this.game.print('');
-          this.game.print('[튜토리얼] engineer 권한을 획득했습니다!', 'success');
-          this.game.print('[튜토리얼] 이제 repair 명령을 사용할 수 있습니다.', 'system');
+          this.game.print('[튜토리얼] Engineer 권한 획득! 이제 수리(repair)가 가능합니다.', 'success');
         },
       },
       {
-        id: 'objectives',
-        instruction: '탈출 목표를 확인하세요.',
-        command: 'objectives',
-        hint: 'objectives 를 입력하세요.',
+        id: 'move_reactor',
+        instruction: '원자로실(reactor)로 이동하세요.',
+        command: 'cd reactor',
+        hint: 'cd reactor 를 입력하세요.',
+        validate: (cmd) => cmd === 'cd reactor',
         onComplete: () => {
           this.game.print('');
-          this.game.print('[튜토리얼] 탈출 목표를 확인했습니다.', 'success');
-          this.game.print('[튜토리얼] 3개 중 2개를 완료하면 탈출할 수 있습니다!', 'warning');
+          this.game.print('[튜토리얼] 원자로실에 도착했습니다.', 'success');
         },
       },
       {
-        id: 'hide',
-        instruction: '적이 가까워지면 hide 로 숨을 수 있습니다. 한 번 시도해보세요.',
-        command: 'hide',
-        hint: 'hide 를 입력하세요.',
+        id: 'repair',
+        instruction: '원자로를 수리하여 목표를 달성하세요. (타이핑 챌린지)',
+        command: 'repair',
+        hint: 'repair 를 입력하고, 나타나는 문구를 정확히 타이핑하세요.',
+        validate: (cmd) => cmd === 'repair',
         onComplete: () => {
           this.game.print('');
-          this.game.print('[튜토리얼] 숨기 성공! 소음이 초기화되고 적이 멀어집니다.', 'success');
+          this.game.print('[튜토리얼] 수리 성공! 목표 1개가 완료되었습니다.', 'success');
+          // 튜토리얼 특전: 목표 1개만으로 탈출 가능하게 처리 (Game.js에서 체크)
+          this.game.objectives.objectives.security.completed = true; // 가짜 완료
+          this.game.print('[튜토리얼] 시뮬레이션 모드: 보안 시스템이 자동 무력화되었습니다.', 'info');
+          this.game.print('[튜토리얼] 이제 탈출 조건(목표 2개)이 충족되었습니다.', 'success');
+        },
+      },
+      {
+        id: 'move_airlock',
+        instruction: '에어락(airlock)으로 이동하세요.',
+        command: 'cd airlock',
+        hint: 'cd airlock 을 입력하세요.',
+        validate: (cmd) => cmd === 'cd airlock',
+        onComplete: () => {
+          this.game.print('');
+          this.game.print('[튜토리얼] 에어락에 도착했습니다.', 'success');
+        },
+      },
+      {
+        id: 'escape',
+        instruction: '정거장을 탈출하세요!',
+        command: 'escape',
+        hint: 'escape 를 입력하세요.',
+        validate: (cmd) => cmd === 'escape',
+        onComplete: () => {
+          // victory()가 호출되므로 여기서 별도 출력 없음
         },
       },
     ];
@@ -151,6 +160,15 @@ export class Tutorial {
    * 인트로 + 첫 단계 안내
    */
   showIntro() {
+    if (this.completed) {
+      setTimeout(() => {
+        this.game.print('');
+        this.game.print('[시스템] 튜토리얼 완료됨. 자유롭게 플레이하세요.', 'system');
+        this.game.print('[TIP] help 로 명령어 목록을 확인하세요.', 'system');
+      }, 500);
+      return;
+    }
+
     // 스토리 출력
     let delay = 0;
     MSG.STORY_INTRO.forEach((line) => {
@@ -171,22 +189,13 @@ export class Tutorial {
     // 튜토리얼 안내
     setTimeout(() => {
       this.game.print('');
-      
-      if (this.completed) {
-        // 이미 완료한 경우
-        this.game.print('[시스템] 튜토리얼 완료됨. 자유롭게 플레이하세요.', 'system');
-        this.game.print('[TIP] help 로 명령어 목록을 확인하세요.', 'system');
-      } else {
-        // 튜토리얼 시작
-        this.game.print('╔════════════════════════════════════╗', 'warning');
-        this.game.print('║         [튜토리얼 시작]            ║', 'warning');
-        this.game.print('╚════════════════════════════════════╝', 'warning');
-        this.game.print('');
-        this.game.print('지시에 따라 명령어를 입력하세요.', 'system');
-        this.game.print('튜토리얼 완료 후 자유롭게 플레이할 수 있습니다.', 'system');
-        this.game.print('');
-        this.showCurrentStep();
-      }
+      this.game.print('╔════════════════════════════════════╗', 'warning');
+      this.game.print('║         [기초 훈련 프로토콜]       ║', 'warning');
+      this.game.print('╚════════════════════════════════════╝', 'warning');
+      this.game.print('');
+      this.game.print('지시에 따라 시스템 사용법을 익히세요.', 'system');
+      this.game.print('');
+      this.showCurrentStep();
     }, delay + 800);
   }
   
@@ -199,8 +208,7 @@ export class Tutorial {
     const step = this.steps[this.currentStep];
     const progress = `[${this.currentStep + 1}/${this.steps.length}]`;
     
-    this.game.print(`${progress} ${step.instruction}`, 'warning');
-    this.game.print(`    → ${step.hint}`, 'system');
+    this.game.print(`${progress} ${step.instruction}`, 'info'); // warning -> info (덜 위협적)
     this.lastInputTime = Date.now();
   }
   
@@ -232,27 +240,26 @@ export class Tutorial {
       
       this.currentStep++;
       
-      // 다음 단계 또는 완료
-      setTimeout(() => {
-        if (this.currentStep >= this.steps.length) {
-          this.completeTutorial();
-        } else {
+      // 완료 체크 (마지막 단계였으면)
+      if (this.currentStep >= this.steps.length) {
+        this.completeTutorial();
+      } else {
+        // 다음 단계 안내
+        setTimeout(() => {
           this.game.print('');
           this.showCurrentStep();
-        }
-      }, 500);
-      
-      return false; // 명령은 정상 실행
-    } else {
-      // 틀린 명령
-      // help는 항상 허용
-      if (cmd === 'help') {
-        return false;
+        }, 500);
       }
       
+      return false; // 명령은 정상 실행 (Game.js가 처리)
+    } else {
+      // 틀린 명령 -> 부드러운 차단 메시지
+      // help는 항상 허용
+      if (cmd === 'help') return false;
+      
       this.game.print('');
-      this.game.print(`[튜토리얼] 지금은 "${step.command}" 를 입력해야 합니다.`, 'error');
-      this.game.print(`    → ${step.hint}`, 'system');
+      this.game.print(`⚠ 훈련 프로토콜 대기 중...`, 'warning');
+      this.game.print(`지금은 다음 명령을 수행해야 합니다: ${step.command}`, 'system');
       
       return true; // 명령 가로챔 (실행 안 함)
     }
@@ -265,25 +272,17 @@ export class Tutorial {
     this.completed = true;
     this.save();
     
-    this.game.print('');
-    this.game.print('╔════════════════════════════════════╗', 'success');
-    this.game.print('║       🎉 튜토리얼 완료! 🎉         ║', 'success');
-    this.game.print('╚════════════════════════════════════╝', 'success');
-    this.game.print('');
-    this.game.print('이제 자유롭게 플레이하세요!', 'system');
-    this.game.print('');
-    this.game.print('목표:', 'warning');
-    this.game.print('  1. 목표 2개 이상 완료 (repair)', 'system');
-    this.game.print('  2. airlock 으로 이동', 'system');
-    this.game.print('  3. escape 로 탈출!', 'system');
-    this.game.print('');
-    this.game.print('[TIP] help 로 명령어 목록을 확인하세요.', 'system');
-    this.game.print('[TIP] objectives 로 목표를 확인하세요.', 'system');
-    
     // 업적 처리
     if (this.game.achievements) {
       this.game.achievements.check('tutorial_complete');
     }
+    
+    // Game.js의 victory()가 메시지 출력하므로 여기선 생략 가능하지만,
+    // 명시적인 완료 로그 남김
+    setTimeout(() => {
+      this.game.print('');
+      this.game.print('🎉 훈련 완료! 실전 투입 준비됨.', 'success');
+    }, 1000);
   }
   
   /**
@@ -291,13 +290,6 @@ export class Tutorial {
    */
   isCompleted() {
     return this.completed;
-  }
-  
-  /**
-   * 튜토리얼 진행 중 여부
-   */
-  isInProgress() {
-    return !this.completed && this.currentStep < this.steps.length;
   }
   
   /**
