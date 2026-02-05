@@ -39,6 +39,8 @@ export const MSG = {
     'lock door': '문을 잠급니다 (전력 -5)',
     'unlock door': '문을 엽니다',
     escape: '탈출합니다 (에어락에서, 목표 2개 이상 완료 시)',
+    shop: '상점을 열어 해금 아이템을 구매합니다',
+    stats: '누적 통계를 확인합니다',
   },
   
   // 상태
@@ -166,4 +168,34 @@ export const MSG = {
   TYPING_SUCCESS: (sec) => `✓ 완료! (${sec}초)`,
   TYPING_FAIL_TIMEOUT: '✗ 시간 초과!',
   TYPING_FAIL_WRONG: '오타! 소음이 증가합니다. 다시 입력하세요.',
+  
+  // 상점
+  SHOP_HEADER: '=== 상점 ===',
+  SHOP_DATA: (amount) => `보유 DATA: ${amount}`,
+  SHOP_BUY_USAGE: '구매: buy <번호>',
+  SHOP_BUY_SUCCESS: (name) => `★ ${name} 해금! ★`,
+  SHOP_BUY_FAIL_MONEY: (cost, have) => `DATA가 부족합니다. (필요: ${cost}, 보유: ${have})`,
+  SHOP_BUY_FAIL_OWNED: '이미 해금된 항목입니다.',
+  SHOP_BUY_FAIL_INVALID: '잘못된 번호입니다.',
+  
+  // 통계
+  STATS_HEADER: '=== 통계 ===',
+  STATS_TOTAL_DATA: (amount) => `총 DATA: ${amount}`,
+  STATS_TOTAL_RUNS: (count) => `총 런: ${count}`,
+  STATS_ESCAPES: (count) => `탈출 성공: ${count}`,
+  STATS_DEATHS: (count) => `사망: ${count}`,
+  STATS_FASTEST: (mins, secs) => `최단 탈출: ${mins}분 ${secs}초`,
+  
+  // 런 종료 보상
+  RUN_REWARD_HEADER: '=== 런 결과 ===',
+  RUN_REWARD_BREAKDOWN: 'DATA 획득 내역:',
+  RUN_REWARD_TOTAL: (amount) => `획득 DATA: +${amount}`,
+  RUN_REWARD_BANK: (amount) => `총 보유 DATA: ${amount}`,
+  RUN_REWARD_NEW_RECORD: '★ 최단 시간 갱신!',
+  
+  // 시작 보너스
+  START_BONUS_HEADER: '=== 시작 보너스 ===',
+  START_BONUS_APPLIED: (bonuses) => bonuses.length > 0 
+    ? `적용된 해금: ${bonuses.join(', ')}`
+    : '적용된 해금 없음',
 };
