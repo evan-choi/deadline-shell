@@ -31,11 +31,14 @@ export const MSG = {
     ls: '현재 방의 물건을 확인합니다',
     cd: '다른 방으로 이동합니다 (예: cd reactor)',
     map: '정거장 지도를 표시합니다',
-    logs: '시스템 로그를 확인합니다',
+    objectives: '탈출 목표를 확인합니다',
     hide: '숨습니다 (적 거리 +2, 소음 초기화)',
-    repair: '시스템을 수리합니다 (engineer 권한 필요)',
+    repair: '목표를 수리합니다 (engineer 권한 필요)',
+    login: '권한을 획득합니다 (예: login engineer)',
+    su: '관리자 권한으로 전환합니다',
     'lock door': '문을 잠급니다 (전력 -5)',
     'unlock door': '문을 엽니다',
+    escape: '탈출합니다 (에어락에서, 목표 2개 이상 완료 시)',
   },
   
   // 상태
@@ -78,10 +81,14 @@ export const MSG = {
   HIDE_SUCCESS: '조용히 숨었습니다... 적이 멀어집니다.',
   HIDE_FAIL: '숨을 곳이 없습니다!',
   
-  // 수리
-  REPAIR_SUCCESS: (system) => `${system} 수리 완료`,
+  // 수리/목표
+  REPAIR_START: '수리를 시작합니다...',
+  REPAIR_SUCCESS: (system) => `${system} 수리 완료!`,
   REPAIR_FAIL: '수리할 대상이 없습니다',
-  REPAIR_USAGE: '사용법: repair <시스템>',
+  REPAIR_USAGE: '사용법: repair',
+  REPAIR_NO_OBJECTIVE: '이 방에서 수리할 목표가 없습니다.',
+  REPAIR_ALREADY_DONE: '이미 완료된 목표입니다.',
+  REPAIR_WRONG_ROOM: (room) => `이 목표는 ${room}에서만 수행할 수 있습니다.`,
   
   // 문
   DOOR_LOCKED: '문을 잠갔습니다. (전력 -5)',
@@ -100,6 +107,19 @@ export const MSG = {
   LS_ITEMS: '발견된 물건:',
   LS_NOTHING: '특별한 것이 없습니다.',
   
+  // 로그인/권한
+  LOGIN_SUCCESS: (level) => `권한 획득: ${level}`,
+  LOGIN_FAIL: '로그인 실패. 올바른 권한을 입력하세요.',
+  LOGIN_USAGE: '사용법: login <engineer>',
+  LOGIN_ALREADY: (level) => `이미 ${level} 권한입니다.`,
+  LOGIN_NEED_SECURITY: 'engineer 권한은 보안실(security)에서만 획득할 수 있습니다.',
+  
+  SU_SUCCESS: '관리자 권한을 획득했습니다!',
+  SU_FAIL: 'su 실패. 타이핑 챌린지를 완료하세요.',
+  SU_NEED_ENGINEER: 'su는 engineer 권한이 필요합니다.',
+  SU_NEED_SECURITY: 'su는 보안실(security)에서만 가능합니다.',
+  SU_ALREADY: '이미 관리자 권한입니다.',
+  
   // 에러
   CMD_NOT_FOUND: (cmd) => `명령어를 찾을 수 없음: ${cmd}`,
   PERMISSION_DENIED: '권한이 부족합니다 (engineer 이상 필요)',
@@ -112,6 +132,8 @@ export const MSG = {
     LOW_O2: '[TIP] 산소가 부족합니다! 서둘러야 합니다',
     ENEMY_NEAR: '[TIP] 적이 가깝습니다! hide 로 숨거나 빠르게 이동하세요',
     STUCK: '[TIP] help 를 입력하면 사용 가능한 명령어를 볼 수 있습니다',
+    NEED_ENGINEER: '[TIP] repair 를 하려면 engineer 권한이 필요합니다. security 에서 login engineer 를 시도해보세요.',
+    OBJECTIVE: '[TIP] objectives 를 입력하면 탈출 목표를 확인할 수 있습니다.',
   },
   
   // 게임 오버
@@ -128,4 +150,20 @@ export const MSG = {
   OBJECTIVE_AIRLOCK: '[ ] 에어락 준비',
   OBJECTIVE_DONE: (name) => `[✓] ${name}`,
   OBJECTIVE_HINT: '3개 중 2개를 완료하면 탈출할 수 있습니다.',
+  OBJECTIVE_COMPLETE: (name) => `★ 목표 완료: ${name} ★`,
+  
+  // 탈출
+  ESCAPE_SUCCESS: '========== 탈출 성공! ==========',
+  ESCAPE_VICTORY: '당신은 우주정거장을 탈출했습니다!',
+  ESCAPE_FAIL_LOCATION: '탈출은 에어락(airlock)에서만 가능합니다.',
+  ESCAPE_FAIL_OBJECTIVES: (current, required) => 
+    `탈출하려면 목표를 ${required}개 이상 완료해야 합니다. (현재: ${current}개)`,
+  
+  // 타이핑 챌린지
+  TYPING_HEADER: '=== 타이핑 챌린지 ===',
+  TYPING_INSTRUCTION: '아래 명령어를 정확히 입력하세요:',
+  TYPING_TIME_LIMIT: (sec) => `제한 시간: ${sec}초`,
+  TYPING_SUCCESS: (sec) => `✓ 완료! (${sec}초)`,
+  TYPING_FAIL_TIMEOUT: '✗ 시간 초과!',
+  TYPING_FAIL_WRONG: '오타! 소음이 증가합니다. 다시 입력하세요.',
 };
