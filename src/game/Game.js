@@ -325,7 +325,7 @@ export class Game {
     if (enemy.distance <= 2) intensity += 0.4;
     if (resources.hp < 50) intensity += 0.2;
     
-    this.crt.setIntensity(Math.min(1, intensity));
+    this.crt.updateFromGameState({ noise: this.state.resources.noise, enemyDistance: this.state.enemy.distance });
   }
   
   triggerError() {
