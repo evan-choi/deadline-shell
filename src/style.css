@@ -35,7 +35,7 @@ html, body {
   background: var(--bg);
   color: var(--crt-green);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  font-size: 14px;
+  font-size: 18px; /* Increased from 14px */
   line-height: 1.4;
 }
 
@@ -58,12 +58,12 @@ html, body {
 
 #main-layout {
   display: flex;
-  gap: 16px;
+  gap: 20px; /* Increased gap */
   width: 100%;
-  max-width: 1100px;
+  max-width: 1400px; /* Increased from 1100px */
   height: 100%;
-  max-height: 650px;
-  padding: 16px;
+  max-height: 820px; /* Increased from 650px */
+  padding: 20px; /* Increased padding */
 }
 
 /* ========================================
@@ -105,9 +105,9 @@ html, body {
   position: relative;
   flex: 1;
   min-width: 0;
-  max-width: 750px;
+  max-width: 950px; /* Increased from 750px */
   height: 100%;
-  padding: 16px;
+  padding: 20px; /* Increased padding */
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -126,28 +126,28 @@ html, body {
 
 #hud {
   display: flex;
-  gap: 16px;
-  padding-bottom: 12px;
+  gap: 20px; /* Increased gap */
+  padding-bottom: 16px; /* Increased padding */
   border-bottom: 1px solid var(--border);
-  margin-bottom: 12px;
+  margin-bottom: 16px; /* Increased margin */
   flex-wrap: wrap;
 }
 
 .resource {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 8px; /* Increased gap */
+  font-size: 15px; /* Increased from 12px */
 }
 
 .resource .label {
   color: var(--crt-green-dim);
-  min-width: 40px;
+  min-width: 50px; /* Increased width */
 }
 
 .resource .bar {
-  width: 60px;
-  height: 8px;
+  width: 75px; /* Increased from 60px */
+  height: 10px; /* Increased from 8px */
   background: var(--bg-light);
   border: 1px solid var(--border);
   position: relative;
@@ -175,7 +175,7 @@ html, body {
 }
 
 .resource .value {
-  min-width: 30px;
+  min-width: 40px; /* Increased from 30px */
   text-align: right;
 }
 
@@ -195,13 +195,13 @@ html, body {
 #output {
   flex: 1;
   overflow-y: auto;
-  padding-right: 8px;
+  padding-right: 10px;
   scrollbar-width: thin;
   scrollbar-color: var(--border) var(--bg);
 }
 
 #output::-webkit-scrollbar {
-  width: 6px;
+  width: 8px; /* Increased from 6px */
 }
 
 #output::-webkit-scrollbar-track {
@@ -213,7 +213,7 @@ html, body {
 }
 
 #output .line {
-  margin-bottom: 2px;
+  margin-bottom: 3px; /* Increased margin */
   word-wrap: break-word;
 }
 
@@ -237,7 +237,7 @@ html, body {
   color: var(--crt-green-bright);
   font-weight: bold;
   text-align: center;
-  padding: 8px 0;
+  padding: 10px 0; /* Increased padding */
   animation: stamp-in 0.6s ease-out;
 }
 
@@ -262,14 +262,14 @@ html, body {
 #input-line {
   display: flex;
   align-items: center;
-  padding-top: 12px;
+  padding-top: 16px; /* Increased padding */
   border-top: 1px solid var(--border);
-  margin-top: 12px;
+  margin-top: 16px; /* Increased margin */
 }
 
 .prompt {
   color: var(--crt-green);
-  margin-right: 8px;
+  margin-right: 10px; /* Increased margin */
   white-space: nowrap;
 }
 
@@ -306,16 +306,16 @@ html, body {
    ======================================== */
 
 #achievements-sidebar {
-  width: 220px;
+  width: 280px; /* Increased from 220px */
   height: 100%;
-  padding: 12px;
+  padding: 16px; /* Increased padding */
   border: 1px solid var(--border);
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px; /* Increased gap */
   overflow-y: auto;
-  font-size: 12px;
+  font-size: 15px; /* Increased from 12px */
   
   /* CRT Glow (dimmer) */
   text-shadow:
@@ -327,7 +327,7 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 8px;
+  padding-bottom: 10px; /* Increased padding */
   border-bottom: 1px solid var(--border);
 }
 
@@ -343,12 +343,12 @@ html, body {
 .sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px; /* Increased gap */
 }
 
 .section-title {
   color: var(--crt-green-dim);
-  font-size: 10px;
+  font-size: 12px; /* Increased from 10px */
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -356,11 +356,11 @@ html, body {
 .achievement-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px; /* Increased gap */
 }
 
 .achievement-item {
-  padding: 6px 8px;
+  padding: 8px 10px; /* Increased padding */
   background: var(--bg-light);
   border: 1px solid var(--border);
   border-radius: 2px;
@@ -391,46 +391,46 @@ html, body {
 }
 
 .achievement-name {
-  font-size: 11px;
+  font-size: 14px; /* Increased from 11px */
   color: var(--crt-green);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .achievement-icon {
-  font-size: 12px;
+  font-size: 15px; /* Increased from 12px */
 }
 
 .achievement-desc {
-  font-size: 10px;
+  font-size: 12px; /* Increased from 10px */
   color: var(--crt-green-dim);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .achievement-reward {
-  font-size: 10px;
+  font-size: 12px; /* Increased from 10px */
   color: var(--warning);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .empty-message {
   color: var(--crt-green-dim);
   font-style: italic;
-  padding: 4px;
+  padding: 5px;
 }
 
 /* Stats in sidebar */
 .stats-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px; /* Increased gap */
 }
 
 .stat-item {
   display: flex;
   justify-content: space-between;
-  padding: 4px 0;
+  padding: 5px 0;
 }
 
 .stat-label {
@@ -448,12 +448,12 @@ html, body {
 
 #achievement-toast {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 25px; /* Increased from 20px */
+  right: 25px; /* Increased from 20px */
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
+  gap: 16px; /* Increased gap */
+  padding: 20px 25px; /* Increased padding */
   background: var(--bg);
   border: 2px solid var(--gold);
   box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
@@ -492,7 +492,7 @@ html, body {
 }
 
 .toast-icon {
-  font-size: 32px;
+  font-size: 40px; /* Increased from 32px */
   animation: toast-bounce 0.5s ease-out;
 }
 
@@ -504,24 +504,24 @@ html, body {
 .toast-content {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px; /* Increased gap */
 }
 
 .toast-title {
-  font-size: 10px;
+  font-size: 12px; /* Increased from 10px */
   color: var(--crt-green-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .toast-name {
-  font-size: 14px;
+  font-size: 18px; /* Increased from 14px */
   color: var(--gold);
   font-weight: bold;
 }
 
 .toast-reward {
-  font-size: 12px;
+  font-size: 15px; /* Increased from 12px */
   color: var(--warning);
 }
 
@@ -565,7 +565,7 @@ html, body {
    Responsive
    ======================================== */
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) { /* Increased break point */
   #main-layout {
     flex-direction: column;
     max-height: none;
@@ -574,33 +574,33 @@ html, body {
   #achievements-sidebar {
     width: 100%;
     height: auto;
-    max-height: 150px;
+    max-height: 200px; /* Increased */
     flex-direction: row;
     flex-wrap: wrap;
   }
   
   .sidebar-section {
     flex: 1;
-    min-width: 150px;
+    min-width: 200px; /* Increased */
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) { /* Increased break point */
   #main-layout {
-    padding: 8px;
-    gap: 8px;
+    padding: 10px;
+    gap: 10px;
   }
   
   #terminal {
-    padding: 12px;
+    padding: 16px;
   }
   
   #hud {
-    gap: 8px;
+    gap: 10px;
   }
   
   .resource .bar {
-    width: 40px;
+    width: 50px;
   }
   
   #achievements-sidebar {
@@ -609,8 +609,8 @@ html, body {
   
   #achievement-toast {
     top: auto;
-    bottom: 20px;
-    right: 10px;
-    left: 10px;
+    bottom: 30px;
+    right: 15px;
+    left: 15px;
   }
 }
