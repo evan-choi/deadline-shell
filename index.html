@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DEADLINE SHELL</title>
-  <script type="module" crossorigin src="/deadline-shell/assets/index-Cq2874JE.js"></script>
-  <link rel="stylesheet" crossorigin href="/deadline-shell/assets/index-Bh111w8x.css">
+  <script type="module" crossorigin src="/deadline-shell/assets/index-DoiBgCIB.js"></script>
+  <link rel="stylesheet" crossorigin href="/deadline-shell/assets/index-CmQms8wL.css">
 </head>
 <body>
   <div id="game">
@@ -23,7 +23,6 @@
           <span class="sidebar-title system-color">⚡ 시스템 알림</span>
         </div>
         <div id="system-log" class="system-log-container">
-          <!-- 이벤트 로그가 여기에 쌓임 -->
           <div class="system-msg info">시스템 가동 중...</div>
         </div>
         <div class="sidebar-section">
@@ -54,8 +53,10 @@
         <!-- Input Line -->
         <div id="input-line">
           <span class="prompt">guest@station:~$</span>
-          <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false" />
-          <span class="cursor">_</span>
+          <div class="input-wrapper">
+            <span class="input-mirror"></span><span class="cursor">_</span>
+            <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false" />
+          </div>
         </div>
       </div>
       
@@ -76,7 +77,6 @@
         <div class="sidebar-section">
           <div class="section-title">진행 중</div>
           <div id="progress-achievements" class="achievement-list">
-            <!-- 동적으로 채워짐 -->
           </div>
         </div>
         
@@ -100,7 +100,7 @@
       </div>
     </div>
     
-    <!-- Achievement Toast (달성 시 팝업) -->
+    <!-- Achievement Toast -->
     <div id="achievement-toast" class="hidden">
       <div class="toast-icon">🏆</div>
       <div class="toast-content">
