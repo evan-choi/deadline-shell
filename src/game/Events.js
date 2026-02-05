@@ -1,1 +1,317 @@
-/**\n * Events - 랜덤 이벤트 시스템\n * 런당 2~4회 발생, 긴장감 + 변주 제공\n */\n\nimport { MSG } from './messages.js';\n\nexport class Events {\n  constructor(game) {\n    this.game = game;\n\n    this.eventTypes = {\n      blackout: {\n        id: 'blackout',\n        name: '정전',\n        message: '⚡ [경고] 정전 발생! 전력이 급감합니다.',\n        effect: (g) => {\n          g.state.resources.power = Math.max(0, g.state.resources.power - 20);\n          this.disableScanFor(3);\n        },\n        duration: 3,\n        positive: false,\n      },\n      o2leak: {\n        id: 'o2leak',\n        name: '산소 누출',\n        message: '💨 [경고] 산소 누출 감지! 이 구역의 산소가 빠르게 감소합니다.',\n        effect: (g) => {\n          this.activeO2Leak = true;\n          this.o2LeakRoom = g.state.location;\n        },\n        duration: 10,\n        positive: false,\n      },\n      noisespike: {\n        id: 'noisespike',\n        name: '소음 감지',\n        message: '📡 [경고] 소음 스파이크! 적이 빠르게 접근합니다.',\n        effect: (g) => {\n          g.state.enemy.distance = Math.max(0, g.state.enemy.distance - 1);\n          g.state.resources.noise = Math.min(100, g.state.resources.noise + 20);\n        },\n        duration: 0,\n        positive: false,\n      },\n      glitch: {\n        id: 'glitch',\n        name: '시스템 오류',\n        message: '🔧 [경고] 시스템 글리치! 다음 명령이 불안정합니다.',\n        effect: () => {\n          this.nextCommandMayFail = true;\n        },\n        duration: 0,\n        positive: false,\n      },\n      powersurge: {\n        id: 'powersurge',\n        name: '전력 서지',\n        message: '⚡ [알림] 예비 전력 공급! 전력이 회복됩니다.',\n        effect: (g) => {\n          g.state.resources.power = Math.min(100, g.state.resources.power + 15);\n        },\n        duration: 0,\n        positive: true,\n      },\n    };\n\n    this.eventCount = 0;\n    this.maxEvents = 4;\n    this.minTicksBetweenEvents = 15;\n    this.lastEventTick = 0;\n\n    this.scanDisabledUntil = 0;\n    this.activeO2Leak = false;\n    this.o2LeakRoom = null;\n    this.o2LeakEndTick = 0;\n    this.nextCommandMayFail = false;\n  }\n\n  isTutorialRun() {\n    // 튜토리얼이 완료되지 않았으면 튜토리얼 런\n    return this.game?.tutorial && !this.game.tutorial.isCompleted();\n  }\n\n  tick() {\n    const { time } = this.game.state;\n\n    // O2 누출 효과\n    if (this.activeO2Leak) {\n      if (time >= this.o2LeakEndTick) {\n        this.activeO2Leak = false;\n        this.game.leftPanel?.logEvent('💨 산소 누출이 멈췄습니다.', 'success');\n      } else if (this.game.state.location === this.o2LeakRoom) {\n        this.game.state.resources.o2 = Math.max(0, this.game.state.resources.o2 - 1);\n      }\n    }\n\n    // 튜토리얼 런에는 랜덤 이벤트 발생 금지\n    if (!this.isTutorialRun()) {\n      this.checkRandomEvent();\n    }\n\n    // 활성 효과 업데이트\n    this.game.leftPanel?.updateEffects(this.getActiveEffects());\n  }\n\n  checkRandomEvent() {\n    const { time, resources, enemy } = this.game.state;\n\n    if (this.eventCount >= this.maxEvents) return;\n    if (time - this.lastEventTick < this.minTicksBetweenEvents) return;\n    if (time < 30) return;\n\n    let chance = 0.03;\n    if (resources.noise > 50) chance += 0.02;\n    if (resources.noise > 80) chance += 0.03;\n    if (enemy.distance <= 2) chance += 0.02;\n\n    if (Math.random() < chance) {\n      this.triggerRandomEvent();\n    }\n  }\n\n  triggerRandomEvent() {\n    const weights = {\n      blackout: 25,\n      o2leak: 20,\n      noisespike: 25,\n      glitch: 20,\n      powersurge: 10,\n    };\n\n    const eventId = this.weightedRandom(weights);\n    const event = this.eventTypes[eventId];\n    if (!event) return;\n\n    this.eventCount++;\n    this.lastEventTick = this.game.state.time;\n\n    // 좌측 패널에 기록\n    this.game.leftPanel?.logEvent(event.message, event.positive ? 'success' : 'warning');\n\n    // 업적 플래그\n    this.game.achievements?.check('event', { type: event.id });\n\n    // 효과 적용\n    event.effect(this.game);\n\n    if (event.id === 'o2leak') {\n      this.o2LeakEndTick = this.game.state.time + event.duration;\n    }\n\n    if (!event.positive) {\n      this.game.crt.glitch(400);\n      this.game.terminalEl.classList.add('error-flash');\n      setTimeout(() => this.game.terminalEl.classList.remove('error-flash'), 200);\n    }\n  }\n\n  weightedRandom(weights) {\n    const total = Object.values(weights).reduce((a, b) => a + b, 0);\n    let rand = Math.random() * total;\n\n    for (const [key, weight] of Object.entries(weights)) {\n      rand -= weight;\n      if (rand <= 0) return key;\n    }\n\n    return Object.keys(weights)[0];\n  }\n\n  disableScanFor(seconds) {\n    this.scanDisabledUntil = this.game.state.time + seconds;\n  }\n\n  isBlackout() {\n    return this.game.state.time < this.scanDisabledUntil;\n  }\n\n  getLeakRoom() {\n    return this.activeO2Leak ? this.o2LeakRoom : null;\n  }\n\n  checkGlitchFail() {\n    if (this.nextCommandMayFail) {\n      this.nextCommandMayFail = false;\n      if (Math.random() < 0.3) {\n        this.game.leftPanel?.logEvent('🔧 시스템 오류로 명령 실행 실패!', 'error');\n        this.game.triggerError();\n        return true;\n      }\n    }\n    return false;\n  }\n\n  getActiveEffects() {\n    const effects = [];\n\n    if (this.isBlackout()) {\n      effects.push('스캔 불가 (정전)');\n    }\n\n    if (this.activeO2Leak) {\n      effects.push(`산소 누출 (${MSG.ROOMS[this.o2LeakRoom]})`);\n    }\n\n    if (this.nextCommandMayFail) {\n      effects.push('시스템 불안정');\n    }\n\n    return effects;\n  }\n\n  // 구버전 호환\n  showStatus() {}\n}\n
+/**
+ * Events - 랜덤 이벤트 시스템
+ * 런당 2~4회 발생, 긴장감 + 변주 제공
+ */
+
+import { MSG } from './messages.js';
+
+export class Events {
+  constructor(game) {
+    this.game = game;
+    
+    // 이벤트 발생 카운터
+    this.eventCount = 0;
+    this.maxEvents = 4;
+    this.minEvents = 2;
+    
+    // 현재 활성 이벤트
+    this.activeEvents = new Map();
+    
+    // 이벤트 정의
+    this.eventTypes = {
+      blackout: {
+        id: 'blackout',
+        name: '정전',
+        nameEn: 'BLACKOUT',
+        probability: 0.08, // 틱당 8%
+        duration: 5, // 5틱 지속
+        onTrigger: () => this.triggerBlackout(),
+        onTick: () => this.tickBlackout(),
+        onEnd: () => this.endBlackout(),
+      },
+      o2Leak: {
+        id: 'o2Leak',
+        name: '산소 누출',
+        nameEn: 'O2 LEAK',
+        probability: 0.06,
+        duration: 8,
+        rooms: ['reactor', 'storage', 'airlock'], // 발생 가능 방
+        onTrigger: () => this.triggerO2Leak(),
+        onTick: () => this.tickO2Leak(),
+        onEnd: () => this.endO2Leak(),
+      },
+      noiseSpike: {
+        id: 'noiseSpike',
+        name: '소음 감지',
+        nameEn: 'NOISE SPIKE',
+        probability: 0.05,
+        duration: 6,
+        condition: () => this.game.state.resources.noise >= 50,
+        onTrigger: () => this.triggerNoiseSpike(),
+        onTick: () => this.tickNoiseSpike(),
+        onEnd: () => this.endNoiseSpike(),
+      },
+      systemGlitch: {
+        id: 'systemGlitch',
+        name: '시스템 오류',
+        nameEn: 'SYS GLITCH',
+        probability: 0.04,
+        duration: 4,
+        onTrigger: () => this.triggerSystemGlitch(),
+        onTick: () => {},
+        onEnd: () => this.endSystemGlitch(),
+      },
+      powerSurge: {
+        id: 'powerSurge',
+        name: '전력 급증',
+        nameEn: 'POWER SURGE',
+        probability: 0.05,
+        duration: 1, // 즉시
+        onTrigger: () => this.triggerPowerSurge(),
+        onTick: () => {},
+        onEnd: () => {},
+      },
+    };
+    
+    // 글리치 상태
+    this.glitchActive = false;
+    this.glitchNextCommand = false;
+  }
+  
+  /**
+   * 매 틱마다 호출 - 이벤트 발생 체크 + 활성 이벤트 틱
+   */
+  tick() {
+    // 활성 이벤트 틱 처리
+    for (const [id, event] of this.activeEvents) {
+      event.remaining--;
+      event.onTick();
+      
+      if (event.remaining <= 0) {
+        event.onEnd();
+        this.activeEvents.delete(id);
+      }
+    }
+    
+    // 새 이벤트 발생 체크 (최대치 미만일 때만)
+    if (this.eventCount < this.maxEvents) {
+      this.checkNewEvent();
+    }
+  }
+  
+  /**
+   * 새 이벤트 발생 체크
+   */
+  checkNewEvent() {
+    for (const eventType of Object.values(this.eventTypes)) {
+      // 이미 활성 중이면 스킵
+      if (this.activeEvents.has(eventType.id)) continue;
+      
+      // 조건 체크
+      if (eventType.condition && !eventType.condition()) continue;
+      
+      // 방 제한 체크
+      if (eventType.rooms && !eventType.rooms.includes(this.game.state.location)) continue;
+      
+      // 확률 체크
+      if (Math.random() < eventType.probability) {
+        this.triggerEvent(eventType);
+        break; // 한 틱에 하나만
+      }
+    }
+  }
+  
+  /**
+   * 이벤트 발생
+   */
+  triggerEvent(eventType) {
+    this.eventCount++;
+    
+    this.activeEvents.set(eventType.id, {
+      ...eventType,
+      remaining: eventType.duration,
+    });
+    
+    // CRT 글리치 효과
+    this.game.crt.glitch(300);
+    
+    eventType.onTrigger();
+  }
+  
+  // ==================== 정전 ====================
+  
+  triggerBlackout() {
+    this.game.print('');
+    this.game.print('⚡ [경고] 정전 발생!', 'error');
+    this.game.print('전력이 급감합니다. scan 명령이 일시적으로 비활성화됩니다.', 'warning');
+    this.game.print('');
+    
+    this.game.state.resources.power = Math.max(0, this.game.state.resources.power - 15);
+  }
+  
+  tickBlackout() {
+    // 정전 중 추가 전력 소모
+    this.game.state.resources.power = Math.max(0, this.game.state.resources.power - 1);
+  }
+  
+  endBlackout() {
+    this.game.print('');
+    this.game.print('[시스템] 전력 복구됨.', 'success');
+    this.game.print('');
+  }
+  
+  /**
+   * 정전 중인지 확인
+   */
+  isBlackout() {
+    return this.activeEvents.has('blackout');
+  }
+  
+  // ==================== 산소 누출 ====================
+  
+  triggerO2Leak() {
+    const roomKr = MSG.ROOMS[this.game.state.location];
+    
+    this.game.print('');
+    this.game.print('💨 [경고] 산소 누출 감지!', 'error');
+    this.game.print(`${roomKr}에서 산소가 빠르게 새고 있습니다!`, 'warning');
+    this.game.print('repair vent 또는 다른 방으로 이동하세요.', 'system');
+    this.game.print('');
+    
+    this.leakRoom = this.game.state.location;
+  }
+  
+  tickO2Leak() {
+    // 누출 방에 있으면 O2 추가 감소
+    if (this.game.state.location === this.leakRoom) {
+      this.game.state.resources.o2 = Math.max(0, this.game.state.resources.o2 - 2);
+    }
+  }
+  
+  endO2Leak() {
+    this.game.print('');
+    this.game.print('[시스템] 산소 누출 자동 봉쇄됨.', 'success');
+    this.game.print('');
+    this.leakRoom = null;
+  }
+  
+  /**
+   * 산소 누출 방 확인
+   */
+  getLeakRoom() {
+    return this.activeEvents.has('o2Leak') ? this.leakRoom : null;
+  }
+  
+  // ==================== 소음 감지 ====================
+  
+  triggerNoiseSpike() {
+    this.game.print('');
+    this.game.print('📡 [경고] 소음 급증 감지!', 'error');
+    this.game.print('추적자가 더 빠르게 접근합니다!', 'warning');
+    this.game.print('');
+  }
+  
+  tickNoiseSpike() {
+    // 적 이동 가속 (기본 3틱당 1칸 → 2틱당 1칸)
+    if (this.game.state.time % 2 === 0) {
+      this.game.state.enemy.distance = Math.max(0, this.game.state.enemy.distance - 1);
+    }
+  }
+  
+  endNoiseSpike() {
+    this.game.print('');
+    this.game.print('[시스템] 추적자 속도 정상화.', 'success');
+    this.game.print('');
+  }
+  
+  /**
+   * 소음 급증 중인지
+   */
+  isNoiseSpike() {
+    return this.activeEvents.has('noiseSpike');
+  }
+  
+  // ==================== 시스템 오류 ====================
+  
+  triggerSystemGlitch() {
+    this.game.print('');
+    this.game.print('🔧 [경고] 시스템 오류!', 'error');
+    this.game.print('다음 명령이 실패할 수 있습니다.', 'warning');
+    this.game.print('');
+    
+    this.glitchActive = true;
+    this.glitchNextCommand = true;
+  }
+  
+  endSystemGlitch() {
+    this.game.print('');
+    this.game.print('[시스템] 시스템 안정화됨.', 'success');
+    this.game.print('');
+    
+    this.glitchActive = false;
+    this.glitchNextCommand = false;
+  }
+  
+  /**
+   * 글리치로 명령 실패 체크 (30% 확률)
+   * @returns {boolean} true면 명령 실패
+   */
+  checkGlitchFail() {
+    if (this.glitchActive && this.glitchNextCommand) {
+      this.glitchNextCommand = false;
+      if (Math.random() < 0.3) {
+        this.game.print('[오류] 시스템 불안정으로 명령 실패!', 'error');
+        this.game.triggerError();
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  // ==================== 전력 급증 ====================
+  
+  triggerPowerSurge() {
+    this.game.print('');
+    this.game.print('⚡ [이벤트] 전력 급증!', 'warning');
+    
+    // 50% 확률로 좋거나 나쁨
+    if (Math.random() < 0.5) {
+      const bonus = 10 + Math.floor(Math.random() * 10);
+      this.game.state.resources.power = Math.min(100, this.game.state.resources.power + bonus);
+      this.game.print(`전력이 +${bonus} 충전되었습니다!`, 'success');
+    } else {
+      const damage = 5 + Math.floor(Math.random() * 10);
+      this.game.state.resources.power = Math.max(0, this.game.state.resources.power - damage);
+      this.game.state.resources.noise = Math.min(100, this.game.state.resources.noise + 10);
+      this.game.print(`전력 과부하로 -${damage} 손실, 소음 +10`, 'error');
+    }
+    
+    this.game.print('');
+  }
+  
+  // ==================== 유틸리티 ====================
+  
+  /**
+   * 현재 활성 이벤트 목록
+   */
+  getActiveEvents() {
+    return Array.from(this.activeEvents.values()).map(e => ({
+      name: e.name,
+      remaining: e.remaining,
+    }));
+  }
+  
+  /**
+   * 이벤트 상태 출력 (status 명령에 추가 가능)
+   */
+  showStatus() {
+    const active = this.getActiveEvents();
+    if (active.length > 0) {
+      this.game.print('');
+      this.game.print('=== 활성 이벤트 ===', 'warning');
+      for (const event of active) {
+        this.game.print(`  ⚠ ${event.name} (${event.remaining}초 남음)`, 'warning');
+      }
+    }
+  }
+}

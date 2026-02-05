@@ -1,1 +1,224 @@
-/**\n * Map - 맵 시스템\n * 방 연결 그래프 + 이동 제약 + 잠긴 구역\n */\n\nimport { MSG } from './messages.js';\nimport { buildAsciiMapLines } from './mapAscii.js';\n\nexport class GameMap {\n  constructor(game) {\n    this.game = game;\n\n    // 기본 맵 연결 (그래프)\n    this.baseConnections = {\n      hub: ['reactor', 'medbay', 'storage'],\n      reactor: ['hub'],\n      medbay: ['hub'],\n      storage: ['hub', 'security'],\n      security: ['storage', 'airlock'],\n      airlock: ['security'],\n    };\n\n    this.connections = {};\n    this.lockedRooms = new Set();\n    this.hasShortcut = false;\n\n    this.initializeMap();\n  }\n\n  isTutorialRun() {\n    // 튜토리얼 미완료 = 튜토리얼 런\n    return this.game?.tutorial && !this.game.tutorial.isCompleted();\n  }\n\n  initializeMap() {\n    // 기본 연결 복사\n    this.connections = {};\n    for (const [room, conns] of Object.entries(this.baseConnections)) {\n      this.connections[room] = [...conns];\n    }\n\n    // 튜토리얼 런: 랜덤성 제거(잠금/단축경로 없음)\n    if (this.isTutorialRun()) {\n      this.hasShortcut = false;\n      this.lockedRooms.clear();\n      return;\n    }\n\n    // 단축 경로 확률 (메타 해금 시 +20%)\n    let shortcutChance = 0.1;\n    if (this.game.meta?.saved?.unlocks?.shortcut_chance) {\n      shortcutChance += 0.2;\n    }\n\n    if (Math.random() < shortcutChance) {\n      this.hasShortcut = true;\n      this.connections.hub.push('airlock');\n      this.connections.airlock.push('hub');\n    } else {\n      this.hasShortcut = false;\n    }\n\n    // 잠긴 방 설정 (1~2개, hub/airlock 제외)\n    this.lockedRooms.clear();\n    const lockableRooms = ['reactor', 'medbay', 'storage', 'security'];\n    const numLocked = Math.random() < 0.3 ? 2 : (Math.random() < 0.5 ? 1 : 0);\n\n    const shuffled = [...lockableRooms].sort(() => Math.random() - 0.5);\n    for (let i = 0; i < numLocked; i++) {\n      this.lockedRooms.add(shuffled[i]);\n    }\n  }\n\n  canMove(from, to) {\n    const connected = this.connections[from];\n    if (!connected || !connected.includes(to)) {\n      const toKr = MSG.ROOMS[to] || to;\n      return {\n        canMove: false,\n        reason: MSG.MOVE_NOT_CONNECTED(to, toKr),\n      };\n    }\n\n    if (this.lockedRooms.has(to)) {\n      if (this.game.state.hasEngineerKeycard) {\n        return { canMove: true, useKeycard: true };\n      }\n\n      const toKr = MSG.ROOMS[to] || to;\n      return {\n        canMove: false,\n        reason: MSG.MOVE_LOCKED(to, toKr),\n        locked: true,\n      };\n    }\n\n    return { canMove: true };\n  }\n\n  unlockRoom(room) {\n    if (!this.lockedRooms.has(room)) return false;\n\n    const perm = this.game.state.permission;\n    if (perm === 'guest') {\n      this.game.print(MSG.PERMISSION_DENIED, 'error');\n      return false;\n    }\n\n    this.lockedRooms.delete(room);\n    return true;\n  }\n\n  useKeycardOn(room) {\n    if (!this.game.state.hasEngineerKeycard) return false;\n    if (!this.lockedRooms.has(room)) return false;\n\n    this.game.state.hasEngineerKeycard = false;\n    this.lockedRooms.delete(room);\n    return true;\n  }\n\n  getAvailableRooms(from) {\n    const connected = this.connections[from] || [];\n    return connected.map(room => ({\n      room,\n      roomKr: MSG.ROOMS[room] || room,\n      locked: this.lockedRooms.has(room),\n    }));\n  }\n\n  showMap() {\n    const current = this.game.state.location;\n    const currentKr = MSG.ROOMS[current] || current;\n\n    this.game.print(MSG.MAP_HEADER, 'system');\n    this.game.print('');\n\n    const lines = buildAsciiMapLines({\n      hasShortcut: this.hasShortcut,\n      lockedRooms: this.lockedRooms,\n      current,\n    });\n    lines.forEach(line => this.game.print(line));\n\n    this.game.print('');\n    this.game.print(`현재 위치: ★ ${currentKr} (${current})`, 'success');\n\n    // 연결된 방 표시\n    const available = this.getAvailableRooms(current);\n    this.game.print('');\n    this.game.print('이동 가능:', 'system');\n    available.forEach(({ room, roomKr, locked }) => {\n      const lockIcon = locked ? ' 🔒' : '';\n      this.game.print(`  cd ${room} - ${roomKr}${lockIcon}`);\n    });\n\n    if (this.lockedRooms.size > 0) {\n      this.game.print('');\n      this.game.print('🔒 = 잠긴 구역 (engineer 권한으로 unlock 또는 키카드 필요)', 'warning');\n    }\n\n    if (this.hasShortcut) {\n      this.game.print('');\n      this.game.print('✨ 단축 경로 활성화: hub ↔ airlock', 'success');\n    }\n  }\n}\n
+/**
+ * Map - 맵 시스템
+ * 방 연결 그래프 + 이동 제약 + 잠긴 구역
+ */
+
+import { MSG } from './messages.js';
+
+export class GameMap {
+  constructor(game) {
+    this.game = game;
+    
+    // 기본 맵 연결 (그래프)
+    this.baseConnections = {
+      hub: ['reactor', 'medbay', 'storage'],
+      reactor: ['hub'],
+      medbay: ['hub'],
+      storage: ['hub', 'security'],
+      security: ['storage', 'airlock'],
+      airlock: ['security'],
+    };
+    
+    // 현재 런의 맵 연결 (변주 적용)
+    this.connections = {};
+    
+    // 잠긴 방 (런 시작 시 랜덤 설정)
+    this.lockedRooms = new Set();
+    
+    // 단축 경로 활성화 여부
+    this.hasShortcut = false;
+    
+    // 초기화
+    this.initializeMap();
+  }
+  
+  /**
+   * 맵 초기화 (런 시작 시)
+   */
+  initializeMap() {
+    // 기본 연결 복사
+    this.connections = {};
+    for (const [room, conns] of Object.entries(this.baseConnections)) {
+      this.connections[room] = [...conns];
+    }
+    
+    // 단축 경로 확률 (메타 해금 시 +20%)
+    let shortcutChance = 0.1; // 기본 10%
+    if (this.game.meta?.saved?.unlocks?.shortcut_chance) {
+      shortcutChance += 0.2;
+    }
+    
+    if (Math.random() < shortcutChance) {
+      this.hasShortcut = true;
+      // hub ↔ airlock 직통 추가
+      this.connections.hub.push('airlock');
+      this.connections.airlock.push('hub');
+    }
+    
+    // 잠긴 방 설정 (1~2개, hub/airlock 제외)
+    this.lockedRooms.clear();
+    const lockableRooms = ['reactor', 'medbay', 'storage', 'security'];
+    const numLocked = Math.random() < 0.3 ? 2 : (Math.random() < 0.5 ? 1 : 0);
+    
+    const shuffled = [...lockableRooms].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < numLocked; i++) {
+      this.lockedRooms.add(shuffled[i]);
+    }
+  }
+  
+  /**
+   * 이동 가능 여부 확인
+   * @param {string} from - 출발 방
+   * @param {string} to - 도착 방
+   * @returns {{ canMove: boolean, reason?: string }}
+   */
+  canMove(from, to) {
+    // 연결 확인
+    const connected = this.connections[from];
+    if (!connected || !connected.includes(to)) {
+      const toKr = MSG.ROOMS[to] || to;
+      return { 
+        canMove: false, 
+        reason: MSG.MOVE_NOT_CONNECTED(to, toKr)
+      };
+    }
+    
+    // 잠긴 방 확인
+    if (this.lockedRooms.has(to)) {
+      // Engineer 키카드 체크
+      if (this.game.state.hasEngineerKeycard) {
+        return { canMove: true, useKeycard: true };
+      }
+      
+      // Engineer 이상 권한이면 unlock 가능 (하지만 이동은 별도)
+      const toKr = MSG.ROOMS[to] || to;
+      return { 
+        canMove: false, 
+        reason: MSG.MOVE_LOCKED(to, toKr),
+        locked: true
+      };
+    }
+    
+    return { canMove: true };
+  }
+  
+  /**
+   * 방 잠금 해제
+   * @param {string} room - 해제할 방
+   * @returns {boolean} 성공 여부
+   */
+  unlockRoom(room) {
+    if (!this.lockedRooms.has(room)) {
+      return false;
+    }
+    
+    // 권한 체크 (engineer 이상)
+    const perm = this.game.state.permission;
+    if (perm === 'guest') {
+      this.game.print(MSG.PERMISSION_DENIED, 'error');
+      return false;
+    }
+    
+    this.lockedRooms.delete(room);
+    return true;
+  }
+  
+  /**
+   * 키카드로 잠금 해제
+   */
+  useKeycardOn(room) {
+    if (!this.game.state.hasEngineerKeycard) {
+      return false;
+    }
+    
+    if (!this.lockedRooms.has(room)) {
+      return false;
+    }
+    
+    this.game.state.hasEngineerKeycard = false;
+    this.lockedRooms.delete(room);
+    return true;
+  }
+  
+  /**
+   * 현재 방에서 갈 수 있는 방 목록
+   */
+  getAvailableRooms(from) {
+    const connected = this.connections[from] || [];
+    return connected.map(room => ({
+      room,
+      roomKr: MSG.ROOMS[room] || room,
+      locked: this.lockedRooms.has(room),
+    }));
+  }
+  
+  /**
+   * 맵 상태 출력 (map 커맨드용)
+   */
+  showMap() {
+    const current = this.game.state.location;
+    const currentKr = MSG.ROOMS[current];
+    
+    this.game.print(MSG.MAP_HEADER, 'system');
+    this.game.print('');
+    
+    // 맵 그리기 (잠긴 방 표시)
+    const locked = (room) => this.lockedRooms.has(room) ? '🔒' : '';
+    const you = (room) => room === current ? '★' : '';
+    
+    if (this.hasShortcut) {
+      // 단축 경로 있는 맵
+      this.game.print(`    [reactor]${locked('reactor')}${you('reactor')}---[hub]${you('hub')}---[medbay]${locked('medbay')}${you('medbay')}`);
+      this.game.print('                  |     \\');
+      this.game.print(`              [storage]${locked('storage')}${you('storage')}  \\`);
+      this.game.print('                  |       \\');
+      this.game.print(`             [security]${locked('security')}${you('security')}  |`);
+      this.game.print('                  |       |');
+      this.game.print(`             [airlock]${you('airlock')}---+`);
+    } else {
+      // 기본 맵
+      this.game.print(`    [reactor]${locked('reactor')}${you('reactor')}---[hub]${you('hub')}---[medbay]${locked('medbay')}${you('medbay')}`);
+      this.game.print('                  |');
+      this.game.print(`              [storage]${locked('storage')}${you('storage')}`);
+      this.game.print('                  |');
+      this.game.print(`             [security]${locked('security')}${you('security')}`);
+      this.game.print('                  |');
+      this.game.print(`             [airlock]${you('airlock')}`);
+    }
+    
+    this.game.print('');
+    this.game.print(`현재 위치: ★ ${currentKr} (${current})`, 'success');
+    
+    // 연결된 방 표시
+    const available = this.getAvailableRooms(current);
+    this.game.print('');
+    this.game.print('이동 가능:', 'system');
+    available.forEach(({ room, roomKr, locked }) => {
+      const lockIcon = locked ? ' 🔒' : '';
+      this.game.print(`  cd ${room} - ${roomKr}${lockIcon}`);
+    });
+    
+    // 잠긴 방 정보
+    if (this.lockedRooms.size > 0) {
+      this.game.print('');
+      this.game.print('🔒 = 잠긴 구역 (engineer 권한으로 unlock 또는 키카드 필요)', 'warning');
+    }
+    
+    if (this.hasShortcut) {
+      this.game.print('');
+      this.game.print('✨ 단축 경로 활성화: hub ↔ airlock', 'success');
+    }
+  }
+  
+  /**
+   * run 커맨드 (빠른 이동, 소음 +3)
+   */
+  canRun(from, to) {
+    // 일단 기본 이동 가능 여부 체크
+    const result = this.canMove(from, to);
+    if (!result.canMove) return result;
+    
+    // run은 추가 소음
+    return { canMove: true, extraNoise: 3 };
+  }
+}

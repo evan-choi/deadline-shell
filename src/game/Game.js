@@ -1,1 +1,414 @@
-/**\n * Game - Core game logic for DEADLINE SHELL\n * 커맨드는 영어, 설명은 한글\n */\n\nimport { MSG } from './messages.js';\nimport { Tutorial } from './Tutorial.js';\nimport { Objectives } from './Objectives.js';\nimport { TypingChallenge } from './TypingChallenge.js';\nimport { Events } from './Events.js';\nimport { Meta } from './Meta.js';\nimport { GameMap } from './Map.js';\nimport { Achievements } from './Achievements.js';\nimport { AchievementsUI } from './AchievementsUI.js';\nimport { LeftPanelUI } from './LeftPanelUI.js';\n\nexport class Game {\n  constructor({ outputEl, inputEl, promptEl, hudEl, terminalEl, crt }) {\n    this.outputEl = outputEl;\n    this.inputEl = inputEl;\n    this.promptEl = promptEl;\n    this.hudEl = hudEl;\n    this.terminalEl = terminalEl;\n    this.crt = crt;\n\n    this.state = {\n      running: false,\n      paused: false,\n      permission: 'guest',\n      location: 'hub',\n      resources: {\n        hp: 100,\n        o2: 100,\n        power: 50,\n        noise: 0,\n      },\n      time: 0,\n      enemy: { distance: 5 },\n      doorLocked: false,\n\n      // 메타 해금 보너스\n      earlyDrainRelief: false,\n      hasEmergencyO2: false,\n      hasTempSuToken: false,\n      hasEngineerKeycard: false,\n    };\n\n    this.tickInterval = null;\n    this.history = [];\n    this.historyIndex = -1;\n\n    // Panels\n    this.leftPanel = new LeftPanelUI();\n\n    // Modules\n    this.tutorial = new Tutorial(this);\n    this.objectives = new Objectives(this);\n    this.typingChallenge = new TypingChallenge(this);\n    this.events = new Events(this);\n    this.meta = new Meta(this);\n    this.map = new GameMap(this);\n\n    // Achievements\n    this.achievements = new Achievements(this);\n    this.achievementsUI = new AchievementsUI(this.achievements, this.meta);\n\n    // Bind input\n    this.inputEl.addEventListener('keydown', (e) => this.handleInput(e));\n  }\n\n  start() {\n    this.state.running = true;\n    this.state.paused = false;\n\n    // 런 플래그 리셋\n    this.achievements.resetRunFlags();\n\n    // 시작 보너스\n    const bonuses = this.meta.applyStartBonuses();\n\n    // 튜토리얼 인트로\n    this.tutorial.showIntro();\n\n    // 좌측 패널\n    this.leftPanel.logEvent('시스템 모니터링 시작', 'info');\n\n    // 튜토리얼 런이 아니면(이미 완료) 랜덤 요소 안내\n    if (this.tutorial.isCompleted()) {\n      if (this.map.lockedRooms.size > 0) {\n        const locked = Array.from(this.map.lockedRooms).map(r => MSG.ROOMS[r]).join(', ');\n        this.leftPanel.logEvent(`🔒 잠긴 구역: ${locked}`, 'warning');\n      }\n      if (bonuses.length > 0) {\n        bonuses.forEach(b => this.leftPanel.logEvent(`✓ 시작 보너스: ${b}`, 'success'));\n      }\n    } else {\n      this.leftPanel.logEvent('튜토리얼 런: 이벤트/잠금 비활성화', 'info');\n    }\n\n    setTimeout(() => {\n      this.tickInterval = setInterval(() => this.tick(), 1000);\n    }, 1200);\n\n    this.updateHUD();\n    this.inputEl.focus();\n\n    // 업적 카운터 체크\n    this.achievements.checkRuns(this.meta.saved.stats.totalRuns);\n    this.achievements.checkTotalData(this.meta.saved.totalData);\n  }\n\n  pause() {\n    this.state.paused = true;\n    if (this.tickInterval) {\n      clearInterval(this.tickInterval);\n      this.tickInterval = null;\n    }\n  }\n\n  resume() {\n    if (this.state.running && this.state.paused) {\n      this.state.paused = false;\n      this.tickInterval = setInterval(() => this.tick(), 1000);\n    }\n  }\n\n  tick() {\n    if (this.state.paused) return;\n\n    const { resources, enemy } = this.state;\n\n    // O2 drain\n    if (!(this.state.earlyDrainRelief && this.state.time < 30)) {\n      resources.o2 = Math.max(0, resources.o2 - 1);\n    }\n\n    // Noise decay\n    resources.noise = Math.max(0, resources.noise - 1);\n\n    // time\n    this.state.time++;\n\n    // enemy movement\n    if (this.state.time % 3 === 0 && resources.noise > 30) {\n      enemy.distance = Math.max(0, enemy.distance - 1);\n    }\n\n    // danger escape counter\n    if (enemy.distance === 1) {\n      this.meta.onDangerEscape();\n      this.achievements.check('danger_escape');\n    }\n\n    // events\n    this.events.tick();\n\n    // free-play hints after tutorial\n    this.tutorial.checkHint();\n\n    // visuals\n    this.updateHUD();\n    this.updateCRT();\n    this.achievementsUI.updateStats();\n\n    // death\n    if (resources.o2 <= 0 || resources.hp <= 0 || enemy.distance === 0) {\n      this.gameOver();\n    }\n  }\n\n  handleInput(e) {\n    if (e.key === 'Enter') {\n      const command = this.inputEl.value.trim();\n      if (command) {\n        this.history.push(command);\n        this.historyIndex = this.history.length;\n\n        if (this.typingChallenge.isActive()) {\n          this.print(`> ${command}`);\n          this.typingChallenge.checkInput(command);\n        } else {\n          this.executeCommand(command);\n        }\n      }\n      this.inputEl.value = '';\n    } else if (e.key === 'ArrowUp') {\n      e.preventDefault();\n      if (this.historyIndex > 0) {\n        this.historyIndex--;\n        this.inputEl.value = this.history[this.historyIndex];\n      }\n    } else if (e.key === 'ArrowDown') {\n      e.preventDefault();\n      if (this.historyIndex < this.history.length - 1) {\n        this.historyIndex++;\n        this.inputEl.value = this.history[this.historyIndex];\n      } else {\n        this.historyIndex = this.history.length;\n        this.inputEl.value = '';\n      }\n    } else if (e.key === 'Tab') {\n      e.preventDefault();\n      this.autoComplete();\n    }\n  }\n\n  autoComplete() {\n    const input = this.inputEl.value.toLowerCase();\n    const commands = [\n      'help', 'status', 'scan', 'cd', 'run', 'ls', 'map', 'objectives',\n      'hide', 'repair', 'login', 'su', 'lock', 'unlock', 'escape',\n      'shop', 'stats', 'buy', 'use', 'achievements'\n    ];\n    const match = commands.find(cmd => cmd.startsWith(input));\n    if (match) this.inputEl.value = match;\n  }\n\n  executeCommand(command) {\n    const normalized = command.trim().toLowerCase();\n\n    // tutorial pre-hint (no blocking)\n    this.tutorial.beforeExecute(normalized);\n\n    // always show user input\n    this.print(`> ${command}`);\n\n    // glitch fail\n    if (this.events.checkGlitchFail()) {\n      this.tutorial.onExecuted(normalized, false);\n      return;\n    }\n\n    const parts = normalized.split(' ');\n    const cmd = parts[0];\n    const args = parts.slice(1);\n\n    // meta commands don't make noise\n    const metaCmds = ['shop', 'stats', 'buy', 'achievements'];\n    if (!metaCmds.includes(cmd)) {\n      this.state.resources.noise = Math.min(100, this.state.resources.noise + 2);\n    }\n\n    // achievements: command usage\n    this.achievements.check('command', { cmd: normalized });\n\n    let success = true;\n\n    switch (cmd) {\n      case 'help': this.cmdHelp(); break;\n      case 'status': this.cmdStatus(); break;\n      case 'scan': success = this.cmdScan(); break;\n      case 'cd': success = this.cmdCd(args[0]); break;\n      case 'run': success = this.cmdRun(args[0]); break;\n      case 'ls': this.cmdLs(); break;\n      case 'map': this.cmdMap(); break;\n      case 'objectives': this.cmdObjectives(); break;\n      case 'hide': this.cmdHide(); break;\n      case 'repair': success = this.cmdRepair(); break;\n      case 'login': success = this.cmdLogin(args[0]); break;\n      case 'su': success = this.cmdSu(); break;\n      case 'escape': success = this.cmdEscape(); break;\n      case 'lock':\n        if (args[0] === 'door') { this.cmdLockDoor(); }\n        else { this.print(MSG.CMD_NOT_FOUND(cmd), 'error'); success = false; }\n        break;\n      case 'unlock':\n        if (args[0] === 'door') { this.cmdUnlockDoor(); }\n        else if (args[0]) { success = this.cmdUnlockRoom(args[0]); }\n        else { this.print(MSG.CMD_NOT_FOUND(cmd), 'error'); success = false; }\n        break;\n      case 'shop': this.cmdShop(); break;\n      case 'stats': this.cmdStats(); break;\n      case 'buy': success = this.cmdBuy(parseInt(args[0])); break;\n      case 'use': success = this.cmdUse(args[0]); break;\n      case 'achievements': this.achievements.showList(); break;\n      default:\n        this.print(MSG.CMD_NOT_FOUND(cmd), 'error');\n        this.triggerError();\n        success = false;\n    }\n\n    // tutorial progress updates only on success\n    this.tutorial.onExecuted(normalized, success);\n\n    this.updateHUD();\n    this.updateCRT();\n  }\n\n  cmdHelp() {\n    this.print(MSG.HELP_HEADER, 'system');\n    this.print('');\n    for (const [cmd, desc] of Object.entries(MSG.HELP_CMDS)) {\n      this.print(`  ${cmd.padEnd(12)} - ${desc}`);\n    }\n  }\n\n  cmdStatus() {\n    const { resources, location, permission } = this.state;\n    const roomKr = MSG.ROOMS[location] || location;\n    const permKr = MSG.PERMISSION[permission] || permission;\n\n    this.print(MSG.STATUS_HEADER, 'system');\n    this.print(`${MSG.STATUS_LOCATION}: ${roomKr} (${location})`);\n    this.print(`${MSG.STATUS_PERMISSION}: ${permKr} (${permission})`);\n    this.print('');\n    this.print(`HP: ${resources.hp}  O2: ${resources.o2}%`);\n    this.print(`전력: ${resources.power}  소음: ${resources.noise}`);\n    this.print('');\n    this.print(`목표 진행: ${this.objectives.getCompletedCount()}/2`, 'system');\n    this.print(`보유 DATA: ${this.meta.saved.totalData}`, 'system');\n\n    this.print('이벤트/상태는 좌측 패널에서 확인하세요.', 'system');\n  }\n\n  cmdScan() {\n    if (this.events.isBlackout()) {\n      this.print('[오류] 정전으로 스캔이 비활성화되었습니다. (좌측 패널 참고)', 'error');\n      this.triggerError();\n      return false;\n    }\n\n    this.state.resources.noise = Math.min(100, this.state.resources.noise + 2);\n    this.print(MSG.SCAN_START, 'system');\n\n    const dist = this.state.enemy.distance;\n    let msg, type;\n\n    if (dist >= 5) { msg = MSG.SCAN_ENEMY_FAR; type = 'success'; }\n    else if (dist >= 3) { msg = MSG.SCAN_ENEMY_APPROACHING; type = 'warning'; }\n    else if (dist >= 1) { msg = MSG.SCAN_ENEMY_NEAR; type = 'error'; }\n    else { msg = MSG.SCAN_ENEMY_CRITICAL; type = 'error'; }\n\n    this.print(msg, type);\n    this.print(`(거리: ${dist})`, 'system');\n\n    const leakRoom = this.events.getLeakRoom();\n    if (leakRoom) {\n      this.leftPanel.logEvent(`💨 산소 누출 감지: ${MSG.ROOMS[leakRoom]}`, 'warning');\n    }\n\n    return true;\n  }\n\n  cmdCd(room) {\n    if (!room) {\n      this.print(MSG.MOVE_USAGE, 'error');\n      return false;\n    }\n\n    const result = this.map.canMove(this.state.location, room);\n\n    if (!result.canMove) {\n      this.print(result.reason, 'error');\n      if (result.locked) {\n        this.leftPanel.logEvent(`🔒 ${MSG.ROOMS[room]} 잠김: unlock ${room} 필요`, 'warning');\n      }\n      this.triggerError();\n      return false;\n    }\n\n    if (result.useKeycard) {\n      this.map.useKeycardOn(room);\n      this.leftPanel.logEvent('Engineer 키카드로 잠금 해제!', 'success');\n    }\n\n    this.state.location = room;\n    this.state.resources.noise = Math.min(100, this.state.resources.noise + 1);\n\n    const roomKr = MSG.ROOMS[room] || room;\n    this.print(MSG.MOVE_SUCCESS(room, roomKr), 'success');\n\n    const obj = this.objectives.getObjectiveForRoom(room);\n    if (obj) {\n      this.leftPanel.logEvent(`목표 가능: ${obj.name}`, 'info');\n    }\n\n    if (this.events.getLeakRoom() === room) {\n      this.leftPanel.logEvent('💨 경고: 이 방에서 산소가 누출되고 있습니다!', 'error');\n    }\n\n    return true;\n  }\n\n  cmdRun(room) {\n    if (!room) {\n      this.print('사용법: run <장소>', 'error');\n      return false;\n    }\n\n    const result = this.map.canMove(this.state.location, room);\n    if (!result.canMove) {\n      this.print(result.reason, 'error');\n      this.triggerError();\n      return false;\n    }\n\n    this.state.resources.noise = Math.min(100, this.state.resources.noise + 3);\n    this.state.location = room;\n\n    const roomKr = MSG.ROOMS[room] || room;\n    this.print(`${roomKr}(으)로 뛰어갑니다! (소음 +3)`, 'success');\n\n    if (this.events.getLeakRoom() === room) {\n      this.leftPanel.logEvent('💨 경고: 이 방에서 산소가 누출되고 있습니다!', 'error');\n    }\n\n    return true;\n  }\n\n  cmdUnlockRoom(room) {\n    if (!this.map.lockedRooms.has(room)) {\n      this.print(`${room}은(는) 잠겨있지 않습니다.`, 'warning');\n      return false;\n    }\n\n    if (this.map.unlockRoom(room)) {\n      const roomKr = MSG.ROOMS[room] || room;\n      this.leftPanel.logEvent(`🔓 잠금 해제: ${roomKr}`, 'success');\n      this.print(`${roomKr} 잠금 해제!`, 'success');\n      return true;\n    }\n    return false;\n  }\n\n  cmdLs() {\n    const { location } = this.state;\n    const roomKr = MSG.ROOMS[location] || location;\n\n    this.print(MSG.LS_HEADER, 'system');\n    this.print(`현재 위치: ${roomKr}`, 'system');\n    this.print('');\n\n    const items = {\n      hub: ['터미널', '비상 지도'],\n      reactor: ['원자로 제어판', '냉각 시스템', '공구함'],\n      medbay: ['의료 키트', '산소 캔', '진단 장비'],\n      storage: ['부품 상자', '배터리', '예비 부품'],\n      security: ['보안 콘솔', '키카드 리더기', '모니터'],\n      airlock: ['탈출 해치', '우주복', '비상 버튼'],\n    };\n\n    const roomItems = items[location] || [];\n    if (roomItems.length > 0) {\n      this.print(MSG.LS_ITEMS);\n      roomItems.forEach(item => this.print(`  - ${item}`));\n    } else {\n      this.print(MSG.LS_NOTHING);\n    }\n\n    const obj = this.objectives.getObjectiveForRoom(location);\n    if (obj) {\n      this.print('');\n      this.print(`[목표] ${obj.name} - repair 명령으로 수행`, 'warning');\n    }\n  }\n\n  cmdMap() {\n    this.map.showMap();\n  }\n\n  cmdObjectives() {\n    this.objectives.showStatus();\n  }\n\n  cmdHide() {\n    this.state.resources.noise = 0;\n    this.state.enemy.distance = Math.min(5, this.state.enemy.distance + 2);\n    this.print(MSG.HIDE_SUCCESS, 'success');\n    this.state.time += 2;\n  }\n\n  cmdLockDoor() {\n    const { resources, doorLocked } = this.state;\n\n    if (doorLocked) {\n      this.print(MSG.DOOR_ALREADY_LOCKED, 'warning');\n      return;\n    }\n\n    if (resources.power < 5) {\n      this.print(MSG.DOOR_NO_POWER, 'error');\n      return;\n    }\n\n    resources.power -= 5;\n    this.state.doorLocked = true;\n\n    this.leftPanel.logEvent('🚪 문 잠금 (전력 -5)', 'info');\n    this.print(MSG.DOOR_LOCKED, 'success');\n  }\n\n  cmdUnlockDoor() {\n    if (!this.state.doorLocked) {\n      this.print(MSG.DOOR_ALREADY_UNLOCKED, 'warning');\n      return;\n    }\n\n    this.state.doorLocked = false;\n    this.leftPanel.logEvent('🚪 문 잠금 해제', 'info');\n    this.print(MSG.DOOR_UNLOCKED, 'success');\n  }\n\n  cmdLogin(level) {\n    if (!level) {\n      this
+/**
+ * Game - Core game logic for DEADLINE SHELL
+ * 커맨드는 영어, 설명은 한글
+ * 
+ * 모듈화: 커맨드 로직은 commands/ 폴더로 분리됨
+ */
+
+import { MSG } from './messages.js';
+import { Tutorial } from './Tutorial.js';
+import { Objectives } from './Objectives.js';
+import { TypingChallenge } from './TypingChallenge.js';
+import { Events } from './Events.js';
+import { Meta } from './Meta.js';
+import { GameMap } from './Map.js';
+import { Achievements } from './Achievements.js';
+import { AchievementsUI } from './AchievementsUI.js';
+import { LeftPanelUI } from './LeftPanelUI.js';
+
+// Commands (모듈화)
+import { cmdHelp, cmdStatus, cmdScan, cmdLs, cmdObjectives, cmdMap } from './commands/core.js';
+import { cmdCd, cmdRun, cmdHide } from './commands/move.js';
+import { cmdRepair, cmdLogin, cmdSu, cmdLockDoor, cmdUnlockDoor, cmdUnlockRoom, cmdEscape } from './commands/action.js';
+import { cmdShop, cmdBuy, cmdUse, cmdStats } from './commands/meta.js';
+
+export class Game {
+  constructor({ outputEl, inputEl, promptEl, hudEl, terminalEl, crt }) {
+    this.outputEl = outputEl;
+    this.inputEl = inputEl;
+    this.promptEl = promptEl;
+    this.hudEl = hudEl;
+    this.terminalEl = terminalEl;
+    this.crt = crt;
+    
+    // Game state
+    this.state = {
+      running: false,
+      paused: false,
+      permission: 'guest',
+      location: 'hub',
+      resources: {
+        hp: 100,
+        o2: 100,
+        power: 50,
+        noise: 0,
+      },
+      time: 0,
+      enemy: { distance: 5 },
+      doorLocked: false,
+      earlyDrainRelief: false,
+      hasEmergencyO2: false,
+      hasTempSuToken: false,
+      hasEngineerKeycard: false,
+    };
+    
+    this.tickInterval = null;
+    this.history = [];
+    this.historyIndex = -1;
+    
+    // Panels
+    this.leftPanel = new LeftPanelUI();
+    
+    // Modules
+    this.tutorial = new Tutorial(this);
+    this.objectives = new Objectives(this);
+    this.typingChallenge = new TypingChallenge(this);
+    this.events = new Events(this);
+    this.meta = new Meta(this);
+    this.map = new GameMap(this);
+    
+    // Achievements
+    this.achievements = new Achievements(this);
+    this.achievementsUI = new AchievementsUI(this.achievements, this.meta);
+    
+    this.inputEl.addEventListener('keydown', (e) => this.handleInput(e));
+  }
+  
+  start() {
+    this.state.running = true;
+    this.state.paused = false;
+    
+    this.achievements.resetRunFlags();
+    const bonuses = this.meta.applyStartBonuses();
+    this.tutorial.showIntro();
+    
+    this.leftPanel.logEvent('시스템 모니터링 시작', 'info');
+    
+    if (this.tutorial.isCompleted()) {
+      if (this.map.lockedRooms.size > 0) {
+        const locked = Array.from(this.map.lockedRooms).map(r => MSG.ROOMS[r]).join(', ');
+        this.leftPanel.logEvent(`🔒 잠긴 구역: ${locked}`, 'warning');
+      }
+      if (bonuses.length > 0) {
+        bonuses.forEach(b => this.leftPanel.logEvent(`✓ 시작 보너스: ${b}`, 'success'));
+      }
+    } else {
+      this.leftPanel.logEvent('튜토리얼 런: 이벤트/잠금 비활성화', 'info');
+    }
+    
+    setTimeout(() => {
+      this.tickInterval = setInterval(() => this.tick(), 1000);
+    }, 1200);
+    
+    this.updateHUD();
+    this.inputEl.focus();
+    
+    this.achievements.checkRuns(this.meta.saved.stats.totalRuns);
+    this.achievements.checkTotalData(this.meta.saved.totalData);
+  }
+  
+  pause() {
+    this.state.paused = true;
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = null;
+    }
+  }
+  
+  resume() {
+    if (this.state.running && this.state.paused) {
+      this.state.paused = false;
+      this.tickInterval = setInterval(() => this.tick(), 1000);
+    }
+  }
+  
+  tick() {
+    if (this.state.paused) return;
+    
+    const { resources, enemy } = this.state;
+    
+    // O2 drain
+    if (!(this.state.earlyDrainRelief && this.state.time < 30)) {
+      resources.o2 = Math.max(0, resources.o2 - 1);
+    }
+    
+    // Noise decay
+    resources.noise = Math.max(0, resources.noise - 1);
+    this.state.time++;
+    
+    // Enemy movement
+    if (this.state.time % 3 === 0 && resources.noise > 30) {
+      enemy.distance = Math.max(0, enemy.distance - 1);
+    }
+    
+    // Danger escape counter
+    if (enemy.distance === 1) {
+      this.meta.onDangerEscape();
+      this.achievements.check('danger_escape');
+    }
+    
+    // Events
+    this.events.tick();
+    
+    // Hints
+    this.tutorial.checkHint();
+    
+    // Update UI
+    this.updateHUD();
+    this.updateCRT();
+    this.achievementsUI.updateStats();
+    
+    // Death check
+    if (resources.o2 <= 0 || resources.hp <= 0 || enemy.distance === 0) {
+      this.gameOver();
+    }
+  }
+  
+  handleInput(e) {
+    if (e.key === 'Enter') {
+      const command = this.inputEl.value.trim();
+      if (command) {
+        this.history.push(command);
+        this.historyIndex = this.history.length;
+        
+        if (this.typingChallenge.isActive()) {
+          this.print(`> ${command}`);
+          this.typingChallenge.checkInput(command);
+        } else {
+          this.executeCommand(command);
+        }
+      }
+      this.inputEl.value = '';
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (this.historyIndex > 0) {
+        this.historyIndex--;
+        this.inputEl.value = this.history[this.historyIndex];
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (this.historyIndex < this.history.length - 1) {
+        this.historyIndex++;
+        this.inputEl.value = this.history[this.historyIndex];
+      } else {
+        this.historyIndex = this.history.length;
+        this.inputEl.value = '';
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      this.autoComplete();
+    }
+  }
+  
+  autoComplete() {
+    const input = this.inputEl.value.toLowerCase();
+    const commands = [
+      'help', 'status', 'scan', 'cd', 'run', 'ls', 'map', 'objectives',
+      'hide', 'repair', 'login', 'su', 'lock', 'unlock', 'escape',
+      'shop', 'stats', 'buy', 'use', 'achievements'
+    ];
+    const match = commands.find(cmd => cmd.startsWith(input));
+    if (match) this.inputEl.value = match;
+  }
+  
+  executeCommand(command) {
+    const normalized = command.trim().toLowerCase();
+    
+    this.tutorial.beforeExecute(normalized);
+    this.print(`> ${command}`);
+    
+    if (this.events.checkGlitchFail()) {
+      this.tutorial.onExecuted(normalized, false);
+      return;
+    }
+    
+    const parts = normalized.split(' ');
+    const cmd = parts[0];
+    const args = parts.slice(1);
+    
+    // Meta commands don't make noise
+    const metaCmds = ['shop', 'stats', 'buy', 'achievements'];
+    if (!metaCmds.includes(cmd)) {
+      this.state.resources.noise = Math.min(100, this.state.resources.noise + 2);
+    }
+    
+    this.achievements.check('command', { cmd: normalized });
+    
+    let success = true;
+    
+    switch (cmd) {
+      case 'help': cmdHelp(this); break;
+      case 'status': cmdStatus(this); break;
+      case 'scan': success = cmdScan(this); break;
+      case 'cd': success = cmdCd(this, args[0]); break;
+      case 'run': success = cmdRun(this, args[0]); break;
+      case 'ls': cmdLs(this); break;
+      case 'map': cmdMap(this); break;
+      case 'objectives': cmdObjectives(this); break;
+      case 'hide': cmdHide(this); break;
+      case 'repair': success = cmdRepair(this); break;
+      case 'login': success = cmdLogin(this, args[0]); break;
+      case 'su': success = cmdSu(this); break;
+      case 'escape': success = cmdEscape(this); break;
+      case 'lock':
+        if (args[0] === 'door') { cmdLockDoor(this); }
+        else { this.print(MSG.CMD_NOT_FOUND(cmd), 'error'); success = false; }
+        break;
+      case 'unlock':
+        if (args[0] === 'door') { cmdUnlockDoor(this); }
+        else if (args[0]) { success = cmdUnlockRoom(this, args[0]); }
+        else { this.print(MSG.CMD_NOT_FOUND(cmd), 'error'); success = false; }
+        break;
+      case 'shop': cmdShop(this); break;
+      case 'stats': cmdStats(this); break;
+      case 'buy': success = cmdBuy(this, parseInt(args[0])); break;
+      case 'use': success = cmdUse(this, args[0]); break;
+      case 'achievements': this.achievements.showList(); break;
+      default:
+        this.print(MSG.CMD_NOT_FOUND(cmd), 'error');
+        this.triggerError();
+        success = false;
+    }
+    
+    this.tutorial.onExecuted(normalized, success);
+    this.updateHUD();
+    this.updateCRT();
+  }
+  
+  // ========== UI Methods ==========
+  
+  print(text, type = 'default') {
+    const line = document.createElement('div');
+    line.className = `output-line ${type}`;
+    line.textContent = text;
+    this.outputEl.appendChild(line);
+    this.outputEl.scrollTop = this.outputEl.scrollHeight;
+  }
+  
+  printHTML(html) {
+    const line = document.createElement('div');
+    line.className = 'output-line';
+    line.innerHTML = html;
+    this.outputEl.appendChild(line);
+    this.outputEl.scrollTop = this.outputEl.scrollHeight;
+  }
+  
+  clearOutput() {
+    this.outputEl.innerHTML = '';
+  }
+  
+  updateHUD() {
+    const { resources, permission, location, time, enemy } = this.state;
+    const roomKr = MSG.ROOMS[location] || location;
+    const permKr = MSG.PERMISSION[permission] || permission;
+    
+    this.hudEl.innerHTML = `
+      <span class="hud-item">HP: ${resources.hp}</span>
+      <span class="hud-item ${resources.o2 < 30 ? 'danger' : ''}">O2: ${resources.o2}%</span>
+      <span class="hud-item">⚡${resources.power}</span>
+      <span class="hud-item ${resources.noise > 50 ? 'warning' : ''}">🔊${resources.noise}</span>
+      <span class="hud-item">📍${roomKr}</span>
+      <span class="hud-item">🔑${permKr}</span>
+      <span class="hud-item">⏱${time}s</span>
+      <span class="hud-item ${enemy.distance <= 2 ? 'danger' : ''}">👾${enemy.distance}</span>
+    `;
+    
+    this.promptEl.textContent = `${location}@${permission}:~$ `;
+  }
+  
+  updateCRT() {
+    if (!this.crt) return;
+    
+    const { resources, enemy } = this.state;
+    let intensity = 0;
+    if (resources.o2 < 30) intensity += 0.3;
+    if (enemy.distance <= 2) intensity += 0.4;
+    if (resources.hp < 50) intensity += 0.2;
+    
+    this.crt.setIntensity(Math.min(1, intensity));
+  }
+  
+  triggerError() {
+    if (this.crt) {
+      this.crt.glitch(200);
+    }
+    this.terminalEl?.classList.add('shake');
+    setTimeout(() => {
+      this.terminalEl?.classList.remove('shake');
+    }, 200);
+  }
+  
+  // ========== Game End States ==========
+  
+  gameOver() {
+    this.state.running = false;
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = null;
+    }
+    
+    const { resources, enemy, time } = this.state;
+    let cause = '알 수 없는 원인';
+    
+    if (resources.o2 <= 0) cause = '산소 고갈';
+    else if (resources.hp <= 0) cause = '체력 소진';
+    else if (enemy.distance === 0) cause = '적에게 발각';
+    
+    this.print('');
+    this.print('========================================', 'error');
+    this.print('  G A M E   O V E R', 'error');
+    this.print(`  사망 원인: ${cause}`, 'error');
+    this.print(`  생존 시간: ${time}초`, 'error');
+    this.print('========================================', 'error');
+    this.print('');
+    
+    this.meta.onGameOver();
+    
+    const earnedData = Math.floor(time / 10) + this.objectives.getCompletedCount() * 5;
+    this.meta.addData(earnedData);
+    this.print(`획득 DATA: ${earnedData}`, 'system');
+    this.print('');
+    this.print('페이지를 새로고침하여 재시작하세요.', 'system');
+    
+    this.achievementsUI.updateStats();
+  }
+  
+  victory() {
+    this.state.running = false;
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = null;
+    }
+    
+    const { time } = this.state;
+    
+    this.print('');
+    this.print('========================================', 'success');
+    this.print('  🎉 탈출 성공! 🎉', 'success');
+    this.print(`  클리어 시간: ${time}초`, 'success');
+    this.print('========================================', 'success');
+    this.print('');
+    
+    this.meta.onVictory(time);
+    
+    const timeBonus = Math.max(0, 100 - time);
+    const earnedData = 50 + timeBonus;
+    this.meta.addData(earnedData);
+    this.print(`획득 DATA: ${earnedData} (기본 50 + 시간 보너스 ${timeBonus})`, 'system');
+    
+    this.achievements.check('escape');
+    this.achievements.check('speed', { time });
+    this.achievements.check('no_damage');
+    
+    if (!this.tutorial.isCompleted()) {
+      this.tutorial.markCompleted();
+      this.print('');
+      this.print('🎓 튜토리얼 완료! 다음 런부터 랜덤 요소가 활성화됩니다.', 'success');
+    }
+    
+    this.print('');
+    this.print('페이지를 새로고침하여 재시작하세요.', 'system');
+    
+    this.achievementsUI.updateStats();
+  }
+}

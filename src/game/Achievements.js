@@ -1,1 +1,504 @@
-/**\n * Achievements - 업적 시스템\n * localStorage에 저장, DATA 보상\n */\n\nconst STORAGE_KEY = 'deadline-shell-achievements';\n\nexport class Achievements {\n  constructor(game) {\n    this.game = game;\n    \n    // 업적 정의\n    this.list = {\n      // 기본\n      first_status: {\n        id: 'first_status',\n        name: '시스템 점검',\n        desc: '처음으로 status 명령어 사용',\n        reward: 5,\n        unlocked: false,\n        hidden: false,\n      },\n      first_scan: {\n        id: 'first_scan',\n        name: '레이더 가동',\n        desc: '처음으로 scan 명령어 사용',\n        reward: 5,\n        unlocked: false,\n        hidden: false,\n      },\n      first_move: {\n        id: 'first_move',\n        name: '첫 발걸음',\n        desc: '처음으로 다른 방으로 이동',\n        reward: 5,\n        unlocked: false,\n        hidden: false,\n      },\n      tutorial_complete: {\n        id: 'tutorial_complete',\n        name: '훈련 완료',\n        desc: '튜토리얼을 완료',\n        reward: 20,\n        unlocked: false,\n        hidden: false,\n      },\n      \n      // 탈출\n      first_escape: {\n        id: 'first_escape',\n        name: '생존자',\n        desc: '처음으로 탈출 성공',\n        reward: 50,\n        unlocked: false,\n        hidden: false,\n      },\n      speed_escape: {\n        id: 'speed_escape',\n        name: '스피드러너',\n        desc: '5분 이내에 탈출',\n        reward: 100,\n        unlocked: false,\n        hidden: false,\n      },\n      perfect_escape: {\n        id: 'perfect_escape',\n        name: '완벽한 탈출',\n        desc: '목표 3개 모두 완료 후 탈출',\n        reward: 80,\n        unlocked: false,\n        hidden: false,\n      },\n      low_o2_escape: {\n        id: 'low_o2_escape',\n        name: '숨 참고 탈출',\n        desc: 'O2 10% 이하로 탈출',\n        reward: 60,\n        unlocked: false,\n        hidden: false,\n      },\n      \n      // 권한\n      become_engineer: {\n        id: 'become_engineer',\n        name: '엔지니어',\n        desc: 'engineer 권한 획득',\n        reward: 10,\n        unlocked: false,\n        hidden: false,\n      },\n      become_admin: {\n        id: 'become_admin',\n        name: '관리자',\n        desc: 'admin 권한 획득',\n        reward: 30,\n        unlocked: false,\n        hidden: false,\n      },\n      \n      // 생존\n      danger_escape_1: {\n        id: 'danger_escape_1',\n        name: '아슬아슬',\n        desc: '적 거리 1에서 생존',\n        reward: 15,\n        unlocked: false,\n        hidden: false,\n      },\n      danger_escape_5: {\n        id: 'danger_escape_5',\n        name: '데스 댄서',\n        desc: '적 거리 1에서 5회 생존 (누적)',\n        reward: 50,\n        unlocked: false,\n        hidden: true,\n      },\n      hide_master: {\n        id: 'hide_master',\n        name: '은신의 달인',\n        desc: 'hide 명령어 10회 사용 (누적)',\n        reward: 30,\n        unlocked: false,\n        hidden: true,\n      },\n      \n      // 수리\n      first_repair: {\n        id: 'first_repair',\n        name: '수리공',\n        desc: '처음으로 목표 수리 완료',\n        reward: 15,\n        unlocked: false,\n        hidden: false,\n      },\n      repair_all: {\n        id: 'repair_all',\n        name: '만능 정비사',\n        desc: '한 런에서 목표 3개 모두 수리',\n        reward: 40,\n        unlocked: false,\n        hidden: false,\n      },\n      \n      // 이벤트\n      survive_blackout: {\n        id: 'survive_blackout',\n        name: '암흑 속에서',\n        desc: '정전 이벤트 발생 후 탈출',\n        reward: 20,\n        unlocked: false,\n        hidden: true,\n      },\n      survive_o2leak: {\n        id: 'survive_o2leak',\n        name: '호흡 조절',\n        desc: '산소 누출 이벤트 발생 후 탈출',\n        reward: 20,\n        unlocked: false,\n        hidden: true,\n      },\n      \n      // 메타\n      first_purchase: {\n        id: 'first_purchase',\n        name: '쇼핑 시작',\n        desc: '상점에서 첫 구매',\n        reward: 10,\n        unlocked: false,\n        hidden: false,\n      },\n      data_collector: {\n        id: 'data_collector',\n        name: '데이터 수집가',\n        desc: '총 500 DATA 획득',\n        reward: 100,\n        unlocked: false,\n        hidden: false,\n      },\n      \n      // 런 횟수\n      runs_10: {\n        id: 'runs_10',\n        name: '집념',\n        desc: '10회 플레이',\n        reward: 30,\n        unlocked: false,\n        hidden: false,\n      },\n      runs_50: {\n        id: 'runs_50',\n        name: '베테랑',\n        desc: '50회 플레이',\n        reward: 100,\n        unlocked: false,\n        hidden: true,\n      },\n      \n      // 사망\n      first_death: {\n        id: 'first_death',\n        name: '시작이 반',\n        desc: '처음으로 사망',\n        reward: 5,\n        unlocked: false,\n        hidden: false,\n      },\n      death_by_o2: {\n        id: 'death_by_o2',\n        name: '질식',\n        desc: '산소 부족으로 사망',\n        reward: 5,\n        unlocked: false,\n        hidden: true,\n      },\n      death_by_enemy: {\n        id: 'death_by_enemy',\n        name: '추적당함',\n        desc: '적에게 발각되어 사망',\n        reward: 5,\n        unlocked: false,\n        hidden: true,\n      },\n    };\n    \n    // 누적 카운터 (업적 조건용)\n    this.counters = {\n      dangerEscapes: 0,\n      hideUsed: 0,\n      totalRuns: 0,\n      totalData: 0,\n    };\n    \n    // 이번 런 플래그\n    this.runFlags = {\n      hadBlackout: false,\n      hadO2Leak: false,\n    };\n    \n    this.load();\n  }\n  \n  load() {\n    try {\n      const raw = localStorage.getItem(STORAGE_KEY);\n      if (raw) {\n        const data = JSON.parse(raw);\n        if (data.unlocked) {\n          for (const id of data.unlocked) {\n            if (this.list[id]) {\n              this.list[id].unlocked = true;\n            }\n          }\n        }\n        if (data.counters) {\n          this.counters = { ...this.counters, ...data.counters };\n        }\n      }\n    } catch (e) {\n      console.warn('Achievements load failed:', e);\n    }\n  }\n  \n  save() {\n    try {\n      const unlocked = Object.values(this.list)\n        .filter(a => a.unlocked)\n        .map(a => a.id);\n      localStorage.setItem(STORAGE_KEY, JSON.stringify({\n        unlocked,\n        counters: this.counters,\n      }));\n    } catch (e) {\n      console.warn('Achievements save failed:', e);\n    }\n  }\n  \n  /**\n   * 업적 해금\n   * - 터미널 출력 ❌\n   * - 우측 토스트/사이드바 ✅ (AchievementsUI로 위임)\n   */\n  unlock(achievementId) {\n    const achievement = this.list[achievementId];\n    if (!achievement || achievement.unlocked) return 0;\n    \n    achievement.unlocked = true;\n    this.save();\n    \n    // META에 DATA 추가\n    if (this.game.meta) {\n      this.game.meta.saved.totalData += achievement.reward;\n      this.game.meta.save();\n    }\n    \n    // UI 토스트\n    if (this.game.achievementsUI) {\n      this.game.achievementsUI.onUnlock(achievement);\n    }\n    \n    return achievement.reward;\n  }\n  \n  check(eventType, data = {}) {\n    switch (eventType) {\n      case 'command':\n        this.checkCommand(data.cmd);\n        break;\n      case 'escape':\n        this.checkEscape(data);\n        break;\n      case 'death':\n        this.checkDeath(data);\n        break;\n      case 'permission':\n        this.checkPermission(data.level);\n        break;\n      case 'repair':\n        this.checkRepair(data);\n        break;\n      case 'event':\n        this.checkEvent(data.type);\n        break;\n      case 'purchase':\n        this.unlock('first_purchase');\n        break;\n      case 'tutorial_complete':\n        this.unlock('tutorial_complete');\n        break;\n      case 'danger_escape':\n        this.counters.dangerEscapes++;\n        this.save();\n        this.unlock('danger_escape_1');\n        if (this.counters.dangerEscapes >= 5) {\n          this.unlock('danger_escape_5');\n        }\n        break;\n    }\n  }\n  \n  checkCommand(cmd) {\n    if (cmd === 'status') this.unlock('first_status');\n    if (cmd === 'scan') this.unlock('first_scan');\n    if (cmd.startsWith('cd ')) this.unlock('first_move');\n    if (cmd === 'hide') {\n      this.counters.hideUsed++;\n      this.save();\n      if (this.counters.hideUsed >= 10) {\n        this.unlock('hide_master');\n      }\n    }\n  }\n  \n  checkEscape(data) {\n    this.unlock('first_escape');\n    if (data.time <= 300) this.unlock('speed_escape');\n    if (data.objectives >= 3) this.unlock('perfect_escape');\n    if (data.o2 <= 10) this.unlock('low_o2_escape');\n    if (this.runFlags.hadBlackout) this.unlock('survive_blackout');\n    if (this.runFlags.hadO2Leak) this.unlock('survive_o2leak');\n  }\n  \n  checkDeath(data) {\n    this.unlock('first_death');\n    if (data.cause === 'o2') this.unlock('death_by_o2');\n    else if (data.cause === 'enemy') this.unlock('death_by_enemy');\n  }\n  \n  checkPermission(level) {\n    if (level === 'engineer') this.unlock('become_engineer');\n    if (level === 'admin') this.unlock('become_admin');\n  }\n  \n  checkRepair(data) {\n    this.unlock('first_repair');\n    if (data.total >= 3) this.unlock('repair_all');\n  }\n  \n  checkEvent(type) {\n    if (type === 'blackout') this.runFlags.hadBlackout = true;\n    if (type === 'o2leak') this.runFlags.hadO2Leak = true;\n  }\n  \n  resetRunFlags() {\n    this.runFlags = { hadBlackout: false, hadO2Leak: false };\n  }\n  \n  checkRuns(totalRuns) {\n    this.counters.totalRuns = totalRuns;\n    this.save();\n    if (totalRuns >= 10) this.unlock('runs_10');\n    if (totalRuns >= 50) this.unlock('runs_50');\n  }\n  \n  checkTotalData(total) {\n    this.counters.totalData = total;\n    this.save();\n    if (total >= 500) this.unlock('data_collector');\n  }\n  \n  showList() {\n    this.game.print('');\n    this.game.print('=== 업적 ===', 'system');\n    const unlocked = Object.values(this.list).filter(a => a.unlocked);\n    const locked = Object.values(this.list).filter(a => !a.unlocked && !a.hidden);\n    const hidden = Object.values(this.list).filter(a => !a.unlocked && a.hidden);\n    this.game.print(`달성: ${unlocked.length}/${Object.keys(this.list).length}`, 'system');\n    this.game.print('');\n    if (unlocked.length > 0) {\n      this.game.print('[달성한 업적]', 'success');\n      unlocked.forEach(a => this.game.print(`  🏆 ${a.name} - ${a.desc}`));\n      this.game.print('');\n    }\n    if (locked.length > 0) {\n      this.game.print('[미달성 업적]', 'warning');\n      locked.forEach(a => this.game.print(`  ○ ${a.name} - ${a.desc} (+${a.reward} DATA)`));\n      this.game.print('');\n    }\n    if (hidden.length > 0) {\n      this.game.print(`[숨겨진 업적: ${hidden.length}개]`, 'system');\n    }\n    this.game.print('');\n  }\n  \n  reset() {\n    localStorage.removeItem(STORAGE_KEY);\n    for (const a of Object.values(this.list)) {\n      a.unlocked = false;\n    }\n    this.counters = { dangerEscapes: 0, hideUsed: 0, totalRuns: 0, totalData: 0 };\n  }\n}\n
+/**
+ * Achievements - 업적 시스템
+ * localStorage에 저장, DATA 보상
+ */
+
+const STORAGE_KEY = 'deadline-shell-achievements';
+
+export class Achievements {
+  constructor(game) {
+    this.game = game;
+    
+    // 업적 정의
+    this.list = {
+      // 기본
+      first_status: {
+        id: 'first_status',
+        name: '시스템 점검',
+        desc: '처음으로 status 명령어 사용',
+        reward: 5,
+        unlocked: false,
+        hidden: false,
+      },
+      first_scan: {
+        id: 'first_scan',
+        name: '레이더 가동',
+        desc: '처음으로 scan 명령어 사용',
+        reward: 5,
+        unlocked: false,
+        hidden: false,
+      },
+      first_move: {
+        id: 'first_move',
+        name: '첫 발걸음',
+        desc: '처음으로 다른 방으로 이동',
+        reward: 5,
+        unlocked: false,
+        hidden: false,
+      },
+      tutorial_complete: {
+        id: 'tutorial_complete',
+        name: '훈련 완료',
+        desc: '튜토리얼을 완료',
+        reward: 20,
+        unlocked: false,
+        hidden: false,
+      },
+      
+      // 탈출
+      first_escape: {
+        id: 'first_escape',
+        name: '생존자',
+        desc: '처음으로 탈출 성공',
+        reward: 50,
+        unlocked: false,
+        hidden: false,
+      },
+      speed_escape: {
+        id: 'speed_escape',
+        name: '스피드러너',
+        desc: '5분 이내에 탈출',
+        reward: 100,
+        unlocked: false,
+        hidden: false,
+      },
+      perfect_escape: {
+        id: 'perfect_escape',
+        name: '완벽한 탈출',
+        desc: '목표 3개 모두 완료 후 탈출',
+        reward: 80,
+        unlocked: false,
+        hidden: false,
+      },
+      low_o2_escape: {
+        id: 'low_o2_escape',
+        name: '숨 참고 탈출',
+        desc: 'O2 10% 이하로 탈출',
+        reward: 60,
+        unlocked: false,
+        hidden: false,
+      },
+      
+      // 권한
+      become_engineer: {
+        id: 'become_engineer',
+        name: '엔지니어',
+        desc: 'engineer 권한 획득',
+        reward: 10,
+        unlocked: false,
+        hidden: false,
+      },
+      become_admin: {
+        id: 'become_admin',
+        name: '관리자',
+        desc: 'admin 권한 획득',
+        reward: 30,
+        unlocked: false,
+        hidden: false,
+      },
+      
+      // 생존
+      danger_escape_1: {
+        id: 'danger_escape_1',
+        name: '아슬아슬',
+        desc: '적 거리 1에서 생존',
+        reward: 15,
+        unlocked: false,
+        hidden: false,
+      },
+      danger_escape_5: {
+        id: 'danger_escape_5',
+        name: '데스 댄서',
+        desc: '적 거리 1에서 5회 생존 (누적)',
+        reward: 50,
+        unlocked: false,
+        hidden: true,
+      },
+      hide_master: {
+        id: 'hide_master',
+        name: '은신의 달인',
+        desc: 'hide 명령어 10회 사용 (누적)',
+        reward: 30,
+        unlocked: false,
+        hidden: true,
+      },
+      
+      // 수리
+      first_repair: {
+        id: 'first_repair',
+        name: '수리공',
+        desc: '처음으로 목표 수리 완료',
+        reward: 15,
+        unlocked: false,
+        hidden: false,
+      },
+      repair_all: {
+        id: 'repair_all',
+        name: '만능 정비사',
+        desc: '한 런에서 목표 3개 모두 수리',
+        reward: 40,
+        unlocked: false,
+        hidden: false,
+      },
+      
+      // 이벤트
+      survive_blackout: {
+        id: 'survive_blackout',
+        name: '암흑 속에서',
+        desc: '정전 이벤트 발생 후 탈출',
+        reward: 20,
+        unlocked: false,
+        hidden: true,
+      },
+      survive_o2leak: {
+        id: 'survive_o2leak',
+        name: '호흡 조절',
+        desc: '산소 누출 이벤트 발생 후 탈출',
+        reward: 20,
+        unlocked: false,
+        hidden: true,
+      },
+      
+      // 메타
+      first_purchase: {
+        id: 'first_purchase',
+        name: '쇼핑 시작',
+        desc: '상점에서 첫 구매',
+        reward: 10,
+        unlocked: false,
+        hidden: false,
+      },
+      data_collector: {
+        id: 'data_collector',
+        name: '데이터 수집가',
+        desc: '총 500 DATA 획득',
+        reward: 100,
+        unlocked: false,
+        hidden: false,
+      },
+      
+      // 런 횟수
+      runs_10: {
+        id: 'runs_10',
+        name: '집념',
+        desc: '10회 플레이',
+        reward: 30,
+        unlocked: false,
+        hidden: false,
+      },
+      runs_50: {
+        id: 'runs_50',
+        name: '베테랑',
+        desc: '50회 플레이',
+        reward: 100,
+        unlocked: false,
+        hidden: true,
+      },
+      
+      // 사망
+      first_death: {
+        id: 'first_death',
+        name: '시작이 반',
+        desc: '처음으로 사망',
+        reward: 5,
+        unlocked: false,
+        hidden: false,
+      },
+      death_by_o2: {
+        id: 'death_by_o2',
+        name: '질식',
+        desc: '산소 부족으로 사망',
+        reward: 5,
+        unlocked: false,
+        hidden: true,
+      },
+      death_by_enemy: {
+        id: 'death_by_enemy',
+        name: '추적당함',
+        desc: '적에게 발각되어 사망',
+        reward: 5,
+        unlocked: false,
+        hidden: true,
+      },
+    };
+    
+    // 누적 카운터 (업적 조건용)
+    this.counters = {
+      dangerEscapes: 0,
+      hideUsed: 0,
+      totalRuns: 0,
+      totalData: 0,
+    };
+    
+    // 이번 런 플래그
+    this.runFlags = {
+      hadBlackout: false,
+      hadO2Leak: false,
+    };
+    
+    this.load();
+  }
+  
+  /**
+   * localStorage에서 불러오기
+   */
+  load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        
+        // 해금 상태 복원
+        if (data.unlocked) {
+          for (const id of data.unlocked) {
+            if (this.list[id]) {
+              this.list[id].unlocked = true;
+            }
+          }
+        }
+        
+        // 카운터 복원
+        if (data.counters) {
+          this.counters = { ...this.counters, ...data.counters };
+        }
+      }
+    } catch (e) {
+      console.warn('Achievements load failed:', e);
+    }
+  }
+  
+  /**
+   * localStorage에 저장
+   */
+  save() {
+    try {
+      const unlocked = Object.values(this.list)
+        .filter(a => a.unlocked)
+        .map(a => a.id);
+      
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        unlocked,
+        counters: this.counters,
+      }));
+    } catch (e) {
+      console.warn('Achievements save failed:', e);
+    }
+  }
+  
+  /**
+   * 업적 해금
+   * @returns {number} 보상 DATA (이미 해금된 경우 0)
+   */
+  unlock(achievementId) {
+    const achievement = this.list[achievementId];
+    if (!achievement || achievement.unlocked) return 0;
+    
+    achievement.unlocked = true;
+    this.save();
+    
+    // 알림 출력
+    this.game.print('');
+    this.game.print('🏆 업적 달성!', 'success');
+    this.game.print(`   ${achievement.name}`, 'success');
+    this.game.print(`   "${achievement.desc}"`, 'system');
+    this.game.print(`   +${achievement.reward} DATA`, 'warning');
+    this.game.print('');
+    
+    // META에 DATA 추가
+    if (this.game.meta) {
+      this.game.meta.saved.totalData += achievement.reward;
+      this.game.meta.save();
+    }
+    
+    return achievement.reward;
+  }
+  
+  /**
+   * 조건 체크 후 자동 해금
+   */
+  check(eventType, data = {}) {
+    switch (eventType) {
+      case 'command':
+        this.checkCommand(data.cmd);
+        break;
+      case 'escape':
+        this.checkEscape(data);
+        break;
+      case 'death':
+        this.checkDeath(data);
+        break;
+      case 'permission':
+        this.checkPermission(data.level);
+        break;
+      case 'repair':
+        this.checkRepair(data);
+        break;
+      case 'event':
+        this.checkEvent(data.type);
+        break;
+      case 'purchase':
+        this.unlock('first_purchase');
+        break;
+      case 'tutorial_complete':
+        this.unlock('tutorial_complete');
+        break;
+      case 'danger_escape':
+        this.counters.dangerEscapes++;
+        this.save();
+        this.unlock('danger_escape_1');
+        if (this.counters.dangerEscapes >= 5) {
+          this.unlock('danger_escape_5');
+        }
+        break;
+    }
+  }
+  
+  checkCommand(cmd) {
+    if (cmd === 'status') this.unlock('first_status');
+    if (cmd === 'scan') this.unlock('first_scan');
+    if (cmd.startsWith('cd ')) this.unlock('first_move');
+    if (cmd === 'hide') {
+      this.counters.hideUsed++;
+      this.save();
+      if (this.counters.hideUsed >= 10) {
+        this.unlock('hide_master');
+      }
+    }
+  }
+  
+  checkEscape(data) {
+    this.unlock('first_escape');
+    
+    if (data.time <= 300) { // 5분
+      this.unlock('speed_escape');
+    }
+    
+    if (data.objectives >= 3) {
+      this.unlock('perfect_escape');
+    }
+    
+    if (data.o2 <= 10) {
+      this.unlock('low_o2_escape');
+    }
+    
+    if (this.runFlags.hadBlackout) {
+      this.unlock('survive_blackout');
+    }
+    
+    if (this.runFlags.hadO2Leak) {
+      this.unlock('survive_o2leak');
+    }
+  }
+  
+  checkDeath(data) {
+    this.unlock('first_death');
+    
+    if (data.cause === 'o2') {
+      this.unlock('death_by_o2');
+    } else if (data.cause === 'enemy') {
+      this.unlock('death_by_enemy');
+    }
+  }
+  
+  checkPermission(level) {
+    if (level === 'engineer') this.unlock('become_engineer');
+    if (level === 'admin') this.unlock('become_admin');
+  }
+  
+  checkRepair(data) {
+    this.unlock('first_repair');
+    
+    if (data.total >= 3) {
+      this.unlock('repair_all');
+    }
+  }
+  
+  checkEvent(type) {
+    if (type === 'blackout') this.runFlags.hadBlackout = true;
+    if (type === 'o2leak') this.runFlags.hadO2Leak = true;
+  }
+  
+  /**
+   * 런 시작 시 플래그 초기화
+   */
+  resetRunFlags() {
+    this.runFlags = {
+      hadBlackout: false,
+      hadO2Leak: false,
+    };
+  }
+  
+  /**
+   * 런 횟수 체크
+   */
+  checkRuns(totalRuns) {
+    this.counters.totalRuns = totalRuns;
+    this.save();
+    
+    if (totalRuns >= 10) this.unlock('runs_10');
+    if (totalRuns >= 50) this.unlock('runs_50');
+  }
+  
+  /**
+   * 총 DATA 체크
+   */
+  checkTotalData(total) {
+    this.counters.totalData = total;
+    this.save();
+    
+    if (total >= 500) this.unlock('data_collector');
+  }
+  
+  /**
+   * 업적 목록 출력
+   */
+  showList() {
+    this.game.print('');
+    this.game.print('=== 업적 ===', 'system');
+    
+    const unlocked = Object.values(this.list).filter(a => a.unlocked);
+    const locked = Object.values(this.list).filter(a => !a.unlocked && !a.hidden);
+    const hidden = Object.values(this.list).filter(a => !a.unlocked && a.hidden);
+    
+    this.game.print(`달성: ${unlocked.length}/${Object.keys(this.list).length}`, 'system');
+    this.game.print('');
+    
+    if (unlocked.length > 0) {
+      this.game.print('[달성한 업적]', 'success');
+      unlocked.forEach(a => {
+        this.game.print(`  🏆 ${a.name} - ${a.desc}`);
+      });
+      this.game.print('');
+    }
+    
+    if (locked.length > 0) {
+      this.game.print('[미달성 업적]', 'warning');
+      locked.forEach(a => {
+        this.game.print(`  ○ ${a.name} - ${a.desc} (+${a.reward} DATA)`);
+      });
+      this.game.print('');
+    }
+    
+    if (hidden.length > 0) {
+      this.game.print(`[숨겨진 업적: ${hidden.length}개]`, 'system');
+    }
+    
+    this.game.print('');
+  }
+  
+  /**
+   * 전체 초기화 (디버그용)
+   */
+  reset() {
+    localStorage.removeItem(STORAGE_KEY);
+    for (const a of Object.values(this.list)) {
+      a.unlocked = false;
+    }
+    this.counters = {
+      dangerEscapes: 0,
+      hideUsed: 0,
+      totalRuns: 0,
+      totalData: 0,
+    };
+  }
+}
