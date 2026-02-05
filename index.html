@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,29 +14,81 @@
     <!-- Vignette -->
     <div class="vignette"></div>
     
-    <!-- Terminal Container -->
-    <div id="terminal">
-      <!-- HUD -->
-      <div id="hud">
-        <span class="resource"><span class="label">HP</span><span class="bar" data-resource="hp"></span><span class="value" data-value="hp">100</span></span>
-        <span class="resource"><span class="label">O2</span><span class="bar" data-resource="o2"></span><span class="value" data-value="o2">100</span></span>
-        <span class="resource"><span class="label">PWR</span><span class="bar" data-resource="power"></span><span class="value" data-value="power">50</span></span>
-        <span class="resource"><span class="label">NOISE</span><span class="bar" data-resource="noise"></span><span class="value" data-value="noise">0</span></span>
-        <span class="resource time"><span class="label">TIME</span><span class="value" data-value="time">00:00</span></span>
+    <!-- Main Layout -->
+    <div id="main-layout">
+      <!-- Terminal Container -->
+      <div id="terminal">
+        <!-- HUD -->
+        <div id="hud">
+          <span class="resource"><span class="label">HP</span><span class="bar" data-resource="hp"></span><span class="value" data-value="hp">100</span></span>
+          <span class="resource"><span class="label">O2</span><span class="bar" data-resource="o2"></span><span class="value" data-value="o2">100</span></span>
+          <span class="resource"><span class="label">PWR</span><span class="bar" data-resource="power"></span><span class="value" data-value="power">50</span></span>
+          <span class="resource"><span class="label">NOISE</span><span class="bar" data-resource="noise"></span><span class="value" data-value="noise">0</span></span>
+          <span class="resource time"><span class="label">TIME</span><span class="value" data-value="time">00:00</span></span>
+        </div>
+        
+        <!-- Output Log -->
+        <div id="output">
+          <div class="line system">DEADLINE SHELL v0.1.0</div>
+          <div class="line system">Loading...</div>
+        </div>
+        
+        <!-- Input Line -->
+        <div id="input-line">
+          <span class="prompt">guest@station:~$</span>
+          <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false" />
+          <span class="cursor">_</span>
+        </div>
       </div>
       
-      <!-- Output Log -->
-      <div id="output">
-        <div class="line system">DEADLINE SHELL v0.1.0</div>
-        <div class="line system">Type 'help' to begin.</div>
-        <div class="line system">---</div>
+      <!-- Achievements Sidebar -->
+      <div id="achievements-sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">🏆 업적</span>
+          <span class="sidebar-progress" id="achievement-progress">0/0</span>
+        </div>
+        
+        <div class="sidebar-section">
+          <div class="section-title">최근 달성</div>
+          <div id="recent-achievements" class="achievement-list">
+            <div class="empty-message">아직 없음</div>
+          </div>
+        </div>
+        
+        <div class="sidebar-section">
+          <div class="section-title">진행 중</div>
+          <div id="progress-achievements" class="achievement-list">
+            <!-- 동적으로 채워짐 -->
+          </div>
+        </div>
+        
+        <div class="sidebar-section">
+          <div class="section-title">통계</div>
+          <div id="sidebar-stats" class="stats-list">
+            <div class="stat-item">
+              <span class="stat-label">DATA</span>
+              <span class="stat-value" id="stat-data">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">런</span>
+              <span class="stat-value" id="stat-runs">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">탈출</span>
+              <span class="stat-value" id="stat-escapes">0</span>
+            </div>
+          </div>
+        </div>
       </div>
-      
-      <!-- Input Line -->
-      <div id="input-line">
-        <span class="prompt">guest@station:~$</span>
-        <input type="text" id="command-input" autofocus autocomplete="off" spellcheck="false" />
-        <span class="cursor">_</span>
+    </div>
+    
+    <!-- Achievement Toast (달성 시 팝업) -->
+    <div id="achievement-toast" class="hidden">
+      <div class="toast-icon">🏆</div>
+      <div class="toast-content">
+        <div class="toast-title">업적 달성!</div>
+        <div class="toast-name" id="toast-achievement-name"></div>
+        <div class="toast-reward" id="toast-achievement-reward"></div>
       </div>
     </div>
   </div>
