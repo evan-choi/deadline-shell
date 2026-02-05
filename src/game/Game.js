@@ -9,6 +9,9 @@ import { Objectives } from './Objectives.js';
 import { TypingChallenge } from './TypingChallenge.js';
 import { Events } from './Events.js';
 import { Meta } from './Meta.js';
+import { GameMap } from './Map.js';
+import { Achievements } from './Achievements.js';
+import { AchievementsUI } from './AchievementsUI.js';
 
 export class Game {
   constructor({ outputEl, inputEl, promptEl, hudEl, terminalEl, crt }) {
@@ -36,17 +39,13 @@ export class Game {
         distance: 5,
       },
       doorLocked: false,
-      // 메타 해금 보너스
       earlyDrainRelief: false,
       hasEmergencyO2: false,
       hasTempSuToken: false,
       hasEngineerKeycard: false,
     };
     
-    // Tick interval
     this.tickInterval = null;
-    
-    // Command history
     this.history = [];
     this.historyIndex = -1;
     
@@ -56,8 +55,12 @@ export class Game {
     this.typingChallenge = new TypingChallenge(this);
     this.events = new Events(this);
     this.meta = new Meta(this);
+    this.map = new GameMap(this);
     
-    // Bind input handler
+    // Achievements
+    this.achievements = new Achievements(this);
+    this.achievementsUI = new AchievementsUI(this.achievements, this.meta);
+    
     this.inputEl.addEventListener('keydown', (e) => this.handleInput(e));
   }
   
@@ -65,29 +68,38 @@ export class Game {
     this.state.running = true;
     this.state.paused = false;
     
-    // 메타 해금 보너스 적용
     const bonuses = this.meta.applyStartBonuses();
-    
-    // 인트로 출력
     this.tutorial.showIntro();
     
-    // 보너스 표시
-    if (bonuses.length > 0) {
-      setTimeout(() => {
-        this.print('');
-        this.print(MSG.START_BONUS_HEADER, 'system');
-        bonuses.forEach(b => this.print(`  ✓ ${b}`, 'success'));
-        this.print('');
-      }, 2500);
+    // 튜토리얼 완료 상태면 맵 초기화 메시지 표시
+    if (this.tutorial.isCompleted()) {
+      if (this.map.lockedRooms.size > 0) {
+        setTimeout(() => {
+          const locked = Array.from(this.map.lockedRooms).map(r => MSG.ROOMS[r]).join(', ');
+          this.print(`⚠ 잠긴 구역 감지: ${locked}`, 'warning');
+        }, 2000);
+      }
+      
+      if (bonuses.length > 0) {
+        setTimeout(() => {
+          this.print('');
+          this.print(MSG.START_BONUS_HEADER, 'system');
+          bonuses.forEach(b => this.print(`  ✓ ${b}`, 'success'));
+          this.print('');
+        }, 2500);
+      }
     }
     
-    // 인트로 후 틱 시작
     setTimeout(() => {
       this.tickInterval = setInterval(() => this.tick(), 1000);
     }, 3000);
     
     this.updateHUD();
     this.inputEl.focus();
+    
+    // 업적 체크
+    this.achievements.checkRuns(this.meta.saved.stats.totalRuns);
+    this.achievements.checkTotalData(this.meta.saved.totalData);
   }
   
   pause() {
@@ -110,33 +122,29 @@ export class Game {
     
     const { resources, enemy } = this.state;
     
-    // O2 drain (초반 완화 보너스 체크)
     if (!(this.state.earlyDrainRelief && this.state.time < 30)) {
       resources.o2 = Math.max(0, resources.o2 - 1);
     }
     
-    // Noise decay
     resources.noise = Math.max(0, resources.noise - 1);
     
-    // Enemy movement
     this.state.time++;
     if (this.state.time % 3 === 0 && resources.noise > 30) {
       enemy.distance = Math.max(0, enemy.distance - 1);
     }
     
-    // 위험 탈출 체크 (적 거리 1에서 생존)
     if (enemy.distance === 1) {
       this.meta.onDangerEscape();
+      this.achievements.check('danger_escape');
     }
     
-    // 랜덤 이벤트
     this.events.tick();
+    this.tutorial.checkHint(); // 자유 플레이 시 힌트 체크
     
-    // Update visuals
     this.updateHUD();
     this.updateCRT();
+    this.achievementsUI.updateStats(); // 사이드바 통계 갱신
     
-    // Check death
     if (resources.o2 <= 0 || resources.hp <= 0 || enemy.distance === 0) {
       this.gameOver();
     }
@@ -181,9 +189,9 @@ export class Game {
   autoComplete() {
     const input = this.inputEl.value.toLowerCase();
     const commands = [
-      'help', 'status', 'scan', 'cd', 'ls', 'map', 'objectives',
+      'help', 'status', 'scan', 'cd', 'run', 'ls', 'map', 'objectives',
       'hide', 'repair', 'login', 'su', 'lock', 'unlock', 'escape',
-      'shop', 'stats', 'buy', 'use'
+      'shop', 'stats', 'buy', 'use', 'achievements'
     ];
     const match = commands.find(cmd => cmd.startsWith(input));
     if (match) {
@@ -194,6 +202,11 @@ export class Game {
   executeCommand(command) {
     this.print(`> ${command}`);
     
+    // 튜토리얼 체크 (명령 가로챔)
+    if (this.tutorial.onCommand(command.toLowerCase())) {
+      return;
+    }
+    
     if (this.events.checkGlitchFail()) {
       return;
     }
@@ -202,88 +215,54 @@ export class Game {
     const cmd = parts[0];
     const args = parts.slice(1);
     
-    // 메타 커맨드는 소음 없음
-    const metaCmds = ['shop', 'stats', 'buy'];
+    // 메타 커맨드 소음 예외
+    const metaCmds = ['shop', 'stats', 'buy', 'achievements'];
     if (!metaCmds.includes(cmd)) {
       this.state.resources.noise = Math.min(100, this.state.resources.noise + 2);
     }
     
+    // 업적 체크 (명령어 사용)
+    this.achievements.check('command', { cmd });
+    
     let success = true;
     
     switch (cmd) {
-      case 'help':
-        this.cmdHelp();
-        break;
-      case 'status':
-        this.cmdStatus();
-        break;
-      case 'scan':
-        success = this.cmdScan();
-        break;
-      case 'cd':
-        success = this.cmdCd(args[0]);
-        break;
-      case 'ls':
-        this.cmdLs();
-        break;
-      case 'map':
-        this.cmdMap();
-        break;
-      case 'objectives':
-        this.cmdObjectives();
-        break;
-      case 'hide':
-        this.cmdHide();
-        break;
-      case 'repair':
-        success = this.cmdRepair();
-        break;
-      case 'login':
-        success = this.cmdLogin(args[0]);
-        break;
-      case 'su':
-        success = this.cmdSu();
-        break;
-      case 'escape':
-        success = this.cmdEscape();
-        break;
+      case 'help': this.cmdHelp(); break;
+      case 'status': this.cmdStatus(); break;
+      case 'scan': success = this.cmdScan(); break;
+      case 'cd': success = this.cmdCd(args[0]); break;
+      case 'run': success = this.cmdRun(args[0]); break;
+      case 'ls': this.cmdLs(); break;
+      case 'map': this.cmdMap(); break;
+      case 'objectives': this.cmdObjectives(); break;
+      case 'hide': this.cmdHide(); break;
+      case 'repair': success = this.cmdRepair(); break;
+      case 'login': success = this.cmdLogin(args[0]); break;
+      case 'su': success = this.cmdSu(); break;
+      case 'escape': success = this.cmdEscape(); break;
       case 'lock':
         if (args[0] === 'door') this.cmdLockDoor();
         else { this.print(MSG.CMD_NOT_FOUND(cmd), 'error'); success = false; }
         break;
       case 'unlock':
         if (args[0] === 'door') this.cmdUnlockDoor();
+        else if (args[0]) success = this.cmdUnlockRoom(args[0]);
         else { this.print(MSG.CMD_NOT_FOUND(cmd), 'error'); success = false; }
         break;
-      case 'shop':
-        this.cmdShop();
-        break;
-      case 'stats':
-        this.cmdStats();
-        break;
-      case 'buy':
-        success = this.cmdBuy(parseInt(args[0]));
-        break;
-      case 'use':
-        success = this.cmdUse(args[0]);
-        break;
+      case 'shop': this.cmdShop(); break;
+      case 'stats': this.cmdStats(); break;
+      case 'buy': success = this.cmdBuy(parseInt(args[0])); break;
+      case 'use': success = this.cmdUse(args[0]); break;
+      case 'achievements': this.achievements.showList(); break;
       default:
         this.print(MSG.CMD_NOT_FOUND(cmd), 'error');
         this.triggerError();
         success = false;
     }
     
-    if (success) {
-      this.tutorial.onCommand(command.toLowerCase());
-    } else {
-      this.tutorial.onError();
-    }
-    
     this.updateHUD();
     this.updateCRT();
   }
-  
-  // ==================== 기본 커맨드 ====================
   
   cmdHelp() {
     this.print(MSG.HELP_HEADER, 'system');
@@ -346,26 +325,75 @@ export class Game {
       return false;
     }
     
-    const rooms = ['hub', 'reactor', 'medbay', 'storage', 'security', 'airlock'];
-    if (rooms.includes(room)) {
-      this.state.location = room;
-      this.state.resources.noise = Math.min(100, this.state.resources.noise + 1);
-      const roomKr = MSG.ROOMS[room] || room;
-      this.print(MSG.MOVE_SUCCESS(room, roomKr), 'success');
-      
-      const obj = this.objectives.getObjectiveForRoom(room);
-      if (obj) this.print(`[!] 이 방에서 수행 가능: ${obj.name}`, 'warning');
-      
-      if (this.events.getLeakRoom() === room) {
-        this.print('⚠ 경고: 이 방에서 산소가 누출되고 있습니다!', 'error');
+    const result = this.map.canMove(this.state.location, room);
+    
+    if (!result.canMove) {
+      this.print(result.reason, 'error');
+      if (result.locked) {
+        this.print('[TIP] unlock <방이름> 으로 잠금 해제 가능 (engineer 권한 필요)', 'system');
       }
-      
-      return true;
-    } else {
-      this.print(MSG.MOVE_UNKNOWN(room), 'error');
       this.triggerError();
       return false;
     }
+    
+    if (result.useKeycard) {
+      this.map.useKeycardOn(room);
+      this.print('Engineer 키카드로 잠금 해제!', 'warning');
+    }
+    
+    this.state.location = room;
+    this.state.resources.noise = Math.min(100, this.state.resources.noise + 1);
+    const roomKr = MSG.ROOMS[room] || room;
+    this.print(MSG.MOVE_SUCCESS(room, roomKr), 'success');
+    
+    const obj = this.objectives.getObjectiveForRoom(room);
+    if (obj) this.print(`[!] 이 방에서 수행 가능: ${obj.name}`, 'warning');
+    
+    if (this.events.getLeakRoom() === room) {
+      this.print('⚠ 경고: 이 방에서 산소가 누출되고 있습니다!', 'error');
+    }
+    
+    return true;
+  }
+  
+  cmdRun(room) {
+    if (!room) {
+      this.print('사용법: run <장소>', 'error');
+      return false;
+    }
+    
+    const result = this.map.canMove(this.state.location, room);
+    
+    if (!result.canMove) {
+      this.print(result.reason, 'error');
+      this.triggerError();
+      return false;
+    }
+    
+    this.state.resources.noise = Math.min(100, this.state.resources.noise + 3);
+    this.state.location = room;
+    const roomKr = MSG.ROOMS[room] || room;
+    this.print(`${roomKr}(으)로 뛰어갑니다! (소음 +3)`, 'success');
+    
+    if (this.events.getLeakRoom() === room) {
+      this.print('⚠ 경고: 이 방에서 산소가 누출되고 있습니다!', 'error');
+    }
+    
+    return true;
+  }
+  
+  cmdUnlockRoom(room) {
+    if (!this.map.lockedRooms.has(room)) {
+      this.print(`${room}은(는) 잠겨있지 않습니다.`, 'warning');
+      return false;
+    }
+    
+    if (this.map.unlockRoom(room)) {
+      const roomKr = MSG.ROOMS[room] || room;
+      this.print(`${roomKr} 잠금 해제!`, 'success');
+      return true;
+    }
+    return false;
   }
   
   cmdLs() {
@@ -401,17 +429,7 @@ export class Game {
   }
   
   cmdMap() {
-    this.print(MSG.MAP_HEADER, 'system');
-    this.print('');
-    this.print('    [reactor]---[hub]---[medbay]');
-    this.print('                  |');
-    this.print('              [storage]');
-    this.print('                  |');
-    this.print('             [security]');
-    this.print('                  |');
-    this.print('             [airlock]');
-    this.print('');
-    this.print(MSG.MAP_CURRENT(MSG.ROOMS[this.state.location]), 'success');
+    this.map.showMap();
   }
   
   cmdObjectives() { this.objectives.showStatus(); }
@@ -422,8 +440,6 @@ export class Game {
     this.print(MSG.HIDE_SUCCESS, 'success');
     this.state.time += 2;
   }
-  
-  // ==================== 문 커맨드 ====================
   
   cmdLockDoor() {
     const { resources, doorLocked } = this.state;
@@ -440,8 +456,6 @@ export class Game {
     this.print(MSG.DOOR_UNLOCKED, 'success');
   }
   
-  // ==================== 권한 커맨드 ====================
-  
   cmdLogin(level) {
     if (!level) { this.print(MSG.LOGIN_USAGE, 'error'); return false; }
     if (level !== 'engineer') { this.print(MSG.LOGIN_FAIL, 'error'); return false; }
@@ -456,6 +470,7 @@ export class Game {
     this.print('');
     this.print('이제 repair 명령을 사용할 수 있습니다!', 'system');
     
+    this.achievements.check('permission', { level: 'engineer' });
     this.terminalEl.classList.add('success-flash');
     setTimeout(() => this.terminalEl.classList.remove('success-flash'), 300);
     
@@ -465,12 +480,12 @@ export class Game {
   cmdSu() {
     if (this.state.permission === 'admin') { this.print(MSG.SU_ALREADY, 'warning'); return false; }
     
-    // 임시 su 토큰 사용
     if (this.state.hasTempSuToken && this.state.permission === 'engineer') {
       this.state.hasTempSuToken = false;
       this.state.permission = 'admin';
       this.print('임시 SU 토큰 사용!', 'warning');
       this.print(MSG.SU_SUCCESS, 'success');
+      this.achievements.check('permission', { level: 'admin' });
       this.updateHUD();
       return true;
     }
@@ -482,6 +497,7 @@ export class Game {
       () => {
         this.state.permission = 'admin';
         this.print(MSG.SU_SUCCESS, 'success');
+        this.achievements.check('permission', { level: 'admin' });
         this.updateHUD();
         this.terminalEl.classList.add('success-flash');
         this.crt.glitch(300);
@@ -492,8 +508,6 @@ export class Game {
     
     return true;
   }
-  
-  // ==================== 목표/수리 ====================
   
   cmdRepair() {
     if (this.state.permission === 'guest') {
@@ -513,6 +527,7 @@ export class Game {
       () => {
         obj.completed = true;
         this.meta.onObjectiveComplete();
+        this.achievements.check('repair', { total: this.objectives.getCompletedCount() });
         this.print('');
         this.print(MSG.OBJECTIVE_COMPLETE(obj.name), 'success');
         this.print('');
@@ -527,8 +542,6 @@ export class Game {
     
     return true;
   }
-  
-  // ==================== 탈출 ====================
   
   cmdEscape() {
     if (this.state.location !== 'airlock') {
@@ -546,22 +559,17 @@ export class Game {
     return true;
   }
   
-  // ==================== 메타 커맨드 ====================
-  
-  cmdShop() {
-    this.meta.showShop();
-  }
-  
-  cmdStats() {
-    this.meta.showStats();
-  }
+  cmdShop() { this.meta.showShop(); }
+  cmdStats() { this.meta.showStats(); }
   
   cmdBuy(index) {
     if (isNaN(index)) {
       this.print(MSG.SHOP_BUY_USAGE, 'error');
       return false;
     }
-    return this.meta.buyItem(index);
+    const result = this.meta.buyItem(index);
+    if (result) this.achievements.check('purchase');
+    return result;
   }
   
   cmdUse(item) {
@@ -575,11 +583,8 @@ export class Game {
     return false;
   }
   
-  // ==================== 게임 종료 ====================
-  
   victory() {
     this.pause();
-    this.tutorial.destroy();
     
     this.print('');
     this.print(MSG.ESCAPE_SUCCESS, 'success');
@@ -593,7 +598,13 @@ export class Game {
     this.print(`완료한 목표: ${this.objectives.getCompletedCount()}/3`, 'system');
     this.print('');
     
-    // DATA 계산
+    // 업적 체크
+    this.achievements.check('escape', {
+      time: this.state.time,
+      o2: this.state.resources.o2,
+      objectives: this.objectives.getCompletedCount(),
+    });
+    
     const reward = this.meta.calculateRunReward(true, this.state.time);
     this.print(MSG.RUN_REWARD_HEADER, 'system');
     reward.breakdown.forEach(line => this.print(`  ${line}`));
@@ -608,16 +619,25 @@ export class Game {
   
   gameOver() {
     this.pause();
-    this.tutorial.destroy();
     
     this.print('', 'system');
     this.print(MSG.GAME_OVER, 'error');
     
-    if (this.state.resources.o2 <= 0) this.print(MSG.DEATH_O2, 'error');
-    else if (this.state.resources.hp <= 0) this.print(MSG.DEATH_HP, 'error');
-    else if (this.state.enemy.distance === 0) this.print(MSG.DEATH_ENEMY, 'error');
+    let cause = 'unknown';
+    if (this.state.resources.o2 <= 0) {
+      this.print(MSG.DEATH_O2, 'error');
+      cause = 'o2';
+    } else if (this.state.resources.hp <= 0) {
+      this.print(MSG.DEATH_HP, 'error');
+      cause = 'hp';
+    } else if (this.state.enemy.distance === 0) {
+      this.print(MSG.DEATH_ENEMY, 'error');
+      cause = 'enemy';
+    }
     
-    // DATA 계산 (실패)
+    // 업적 체크
+    this.achievements.check('death', { cause });
+    
     const reward = this.meta.calculateRunReward(false, this.state.time);
     this.print('');
     this.print(MSG.RUN_REWARD_HEADER, 'system');
@@ -628,8 +648,6 @@ export class Game {
     this.print('');
     this.print(MSG.RETRY, 'system');
   }
-  
-  // ==================== UI ====================
   
   print(text, type = '') {
     const line = document.createElement('div');
