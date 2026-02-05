@@ -7,6 +7,7 @@ import { MSG } from './messages.js';
 import { Tutorial } from './Tutorial.js';
 import { Objectives } from './Objectives.js';
 import { TypingChallenge } from './TypingChallenge.js';
+import { Events } from './Events.js';
 
 export class Game {
   constructor({ outputEl, inputEl, promptEl, hudEl, terminalEl, crt }) {
@@ -47,6 +48,7 @@ export class Game {
     this.tutorial = new Tutorial(this);
     this.objectives = new Objectives(this);
     this.typingChallenge = new TypingChallenge(this);
+    this.events = new Events(this);
     
     // Bind input handler
     this.inputEl.addEventListener('keydown', (e) => this.handleInput(e));
@@ -99,6 +101,9 @@ export class Game {
     if (this.state.time % 3 === 0 && resources.noise > 30) {
       enemy.distance = Math.max(0, enemy.distance - 1);
     }
+    
+    // 랜덤 이벤트 처리
+    this.events.tick();
     
     // Update visuals
     this.updateHUD();
@@ -162,6 +167,11 @@ export class Game {
   executeCommand(command) {
     this.print(`> ${command}`);
     
+    // 시스템 글리치로 명령 실패 체크
+    if (this.events.checkGlitchFail()) {
+      return;
+    }
+    
     const parts = command.toLowerCase().split(' ');
     const cmd = parts[0];
     const args = parts.slice(1);
@@ -179,7 +189,7 @@ export class Game {
         this.cmdStatus();
         break;
       case 'scan':
-        this.cmdScan();
+        success = this.cmdScan();
         break;
       case 'cd':
         success = this.cmdCd(args[0]);
@@ -264,9 +274,19 @@ export class Game {
     this.print(`전력: ${resources.power}  소음: ${resources.noise}`);
     this.print('');
     this.print(`목표 진행: ${this.objectives.getCompletedCount()}/2`, 'system');
+    
+    // 활성 이벤트 표시
+    this.events.showStatus();
   }
   
   cmdScan() {
+    // 정전 중이면 scan 불가
+    if (this.events.isBlackout()) {
+      this.print('[오류] 정전으로 스캔 시스템이 비활성화되었습니다.', 'error');
+      this.triggerError();
+      return false;
+    }
+    
     this.state.resources.noise = Math.min(100, this.state.resources.noise + 2);
     this.print(MSG.SCAN_START, 'system');
     
@@ -289,6 +309,15 @@ export class Game {
     
     this.print(msg, type);
     this.print(`(거리: ${dist})`, 'system');
+    
+    // 산소 누출 방 경고
+    const leakRoom = this.events.getLeakRoom();
+    if (leakRoom) {
+      const leakRoomKr = MSG.ROOMS[leakRoom];
+      this.print(`⚠ 산소 누출 감지: ${leakRoomKr}`, 'warning');
+    }
+    
+    return true;
   }
   
   cmdCd(room) {
@@ -308,6 +337,11 @@ export class Game {
       const obj = this.objectives.getObjectiveForRoom(room);
       if (obj) {
         this.print(`[!] 이 방에서 수행 가능: ${obj.name}`, 'warning');
+      }
+      
+      // 산소 누출 방 경고
+      if (this.events.getLeakRoom() === room) {
+        this.print('⚠ 경고: 이 방에서 산소가 누출되고 있습니다!', 'error');
       }
       
       return true;
