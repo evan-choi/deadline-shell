@@ -13,10 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const crt = new CRTEffect(crtCanvas);
   crt.start();
 
+  // Get input elements
+  const inputEl = document.getElementById('command-input');
+  const mirrorEl = document.querySelector('.input-mirror');
+
   // Initialize game
   const game = new Game({
     outputEl: document.getElementById('output'),
-    inputEl: document.getElementById('command-input'),
+    inputEl: inputEl,
     promptEl: document.querySelector('.prompt'),
     hudEl: document.getElementById('hud'),
     terminalEl: document.getElementById('terminal'),
@@ -24,6 +28,23 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   game.start();
+
+  // Mirror input text for cursor positioning
+  if (mirrorEl) {
+    inputEl.addEventListener('input', () => {
+      mirrorEl.textContent = inputEl.value;
+    });
+    
+    // Also update on keyup for edge cases
+    inputEl.addEventListener('keyup', () => {
+      mirrorEl.textContent = inputEl.value;
+    });
+    
+    // Clear mirror when input is cleared
+    inputEl.addEventListener('change', () => {
+      mirrorEl.textContent = inputEl.value;
+    });
+  }
 
   // Handle tab visibility (pause when hidden)
   document.addEventListener('visibilitychange', () => {
@@ -38,6 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Focus input on click anywhere
   document.addEventListener('click', () => {
-    document.getElementById('command-input').focus();
+    inputEl.focus();
   });
 });
