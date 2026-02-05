@@ -13,6 +13,7 @@
   --warning: #FFE66D;
   --danger: #FF4D4D;
   --gold: #FFD700;
+  --info: #7FDBFF;
   
   /* CRT Effect Variables (controlled by JS) */
   --glow-blur: 2px;
@@ -53,17 +54,17 @@ html, body {
 }
 
 /* ========================================
-   Main Layout (Terminal + Sidebar)
+   Main Layout (Left + Terminal + Right)
    ======================================== */
 
 #main-layout {
   display: flex;
-  gap: 20px; /* Increased gap */
+  gap: 20px;
   width: 100%;
-  max-width: 1400px; /* Increased from 1100px */
+  max-width: 1600px; /* Increased for 3 columns */
   height: 100%;
-  max-height: 820px; /* Increased from 650px */
-  padding: 20px; /* Increased padding */
+  max-height: 820px;
+  padding: 20px;
 }
 
 /* ========================================
@@ -98,16 +99,15 @@ html, body {
 }
 
 /* ========================================
-   Terminal Container
+   Terminal Container (Center)
    ======================================== */
 
 #terminal {
   position: relative;
-  flex: 1;
+  flex: 2; /* Takes more space */
   min-width: 0;
-  max-width: 950px; /* Increased from 750px */
   height: 100%;
-  padding: 20px; /* Increased padding */
+  padding: 20px;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
@@ -126,28 +126,28 @@ html, body {
 
 #hud {
   display: flex;
-  gap: 20px; /* Increased gap */
-  padding-bottom: 16px; /* Increased padding */
+  gap: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 16px; /* Increased margin */
+  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
 .resource {
   display: flex;
   align-items: center;
-  gap: 8px; /* Increased gap */
-  font-size: 15px; /* Increased from 12px */
+  gap: 8px;
+  font-size: 15px;
 }
 
 .resource .label {
   color: var(--crt-green-dim);
-  min-width: 50px; /* Increased width */
+  min-width: 50px;
 }
 
 .resource .bar {
-  width: 75px; /* Increased from 60px */
-  height: 10px; /* Increased from 8px */
+  width: 75px;
+  height: 10px;
   background: var(--bg-light);
   border: 1px solid var(--border);
   position: relative;
@@ -175,7 +175,7 @@ html, body {
 }
 
 .resource .value {
-  min-width: 40px; /* Increased from 30px */
+  min-width: 40px;
   text-align: right;
 }
 
@@ -201,7 +201,7 @@ html, body {
 }
 
 #output::-webkit-scrollbar {
-  width: 8px; /* Increased from 6px */
+  width: 8px;
 }
 
 #output::-webkit-scrollbar-track {
@@ -213,46 +213,28 @@ html, body {
 }
 
 #output .line {
-  margin-bottom: 3px; /* Increased margin */
+  margin-bottom: 3px;
   word-wrap: break-word;
 }
 
-#output .line.system {
-  color: var(--crt-green-dim);
-}
-
-#output .line.error {
-  color: var(--danger);
-}
-
-#output .line.warning {
-  color: var(--warning);
-}
-
-#output .line.success {
-  color: var(--crt-green-bright);
-}
+#output .line.system { color: var(--crt-green-dim); }
+#output .line.error { color: var(--danger); }
+#output .line.warning { color: var(--warning); }
+#output .line.success { color: var(--crt-green-bright); }
+#output .line.info { color: var(--info); }
 
 #output .line.stamp {
   color: var(--crt-green-bright);
   font-weight: bold;
   text-align: center;
-  padding: 10px 0; /* Increased padding */
+  padding: 10px 0;
   animation: stamp-in 0.6s ease-out;
 }
 
 @keyframes stamp-in {
-  0% {
-    opacity: 0;
-    transform: scale(1.5);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(0.95);
-  }
-  100% {
-    transform: scale(1);
-  }
+  0% { opacity: 0; transform: scale(1.5); }
+  50% { opacity: 1; transform: scale(0.95); }
+  100% { transform: scale(1); }
 }
 
 /* ========================================
@@ -262,24 +244,19 @@ html, body {
 #input-line {
   display: flex;
   align-items: center;
-  padding-top: 16px; /* Increased padding */
+  padding-top: 16px;
   border-top: 1px solid var(--border);
-  margin-top: 16px; /* Increased margin */
+  margin-top: 16px;
 }
 
 .prompt {
   color: var(--crt-green);
-  margin-right: 10px; /* Increased margin */
+  margin-right: 10px;
   white-space: nowrap;
 }
 
-.prompt.engineer {
-  color: var(--warning);
-}
-
-.prompt.admin {
-  color: var(--danger);
-}
+.prompt.engineer { color: var(--warning); }
+.prompt.admin { color: var(--danger); }
 
 #command-input {
   flex: 1;
@@ -302,39 +279,41 @@ html, body {
 }
 
 /* ========================================
-   Achievements Sidebar
+   Shared Sidebar Styles
    ======================================== */
 
-#achievements-sidebar {
-  width: 280px; /* Increased from 220px */
+#achievements-sidebar, #system-panel {
+  flex: 1;
+  width: 280px;
+  min-width: 250px;
   height: 100%;
-  padding: 16px; /* Increased padding */
+  padding: 16px;
   border: 1px solid var(--border);
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  gap: 16px; /* Increased gap */
+  gap: 16px;
   overflow-y: auto;
-  font-size: 15px; /* Increased from 12px */
+  font-size: 15px;
   
   /* CRT Glow (dimmer) */
-  text-shadow:
-    0 0 1px rgba(156, 255, 156, 0.3),
-    0 0 4px rgba(156, 255, 156, 0.1);
+  text-shadow: 0 0 1px rgba(156, 255, 156, 0.3), 0 0 4px rgba(156, 255, 156, 0.1);
 }
 
 .sidebar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 10px; /* Increased padding */
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
 }
 
 .sidebar-title {
   font-weight: bold;
-  color: var(--gold);
 }
+
+.sidebar-title.system-color { color: var(--warning); }
+.sidebar-title { color: var(--gold); }
 
 .sidebar-progress {
   color: var(--crt-green-dim);
@@ -343,24 +322,77 @@ html, body {
 .sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 8px; /* Increased gap */
+  gap: 8px;
 }
 
 .section-title {
   color: var(--crt-green-dim);
-  font-size: 12px; /* Increased from 10px */
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
+.empty-message {
+  color: var(--crt-green-dim);
+  font-style: italic;
+  padding: 5px;
+}
+
+/* ========================================
+   Left Panel: System Log
+   ======================================== */
+
+.system-log-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.system-msg {
+  font-size: 13px;
+  padding: 4px;
+  border-left: 2px solid var(--crt-green-dim);
+  background: rgba(0, 20, 0, 0.3);
+}
+
+.system-msg.warning { border-color: var(--warning); color: var(--warning); }
+.system-msg.error { border-color: var(--danger); color: var(--danger); }
+.system-msg.success { border-color: var(--crt-green-bright); color: var(--crt-green-bright); }
+.system-msg.info { border-color: var(--info); color: var(--info); }
+
+.effects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.effect-item {
+  font-size: 13px;
+  color: var(--warning);
+  animation: pulse-text 1.5s infinite;
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ========================================
+   Right Panel: Achievements
+   ======================================== */
+
 .achievement-list {
   display: flex;
   flex-direction: column;
-  gap: 6px; /* Increased gap */
+  gap: 6px;
 }
 
 .achievement-item {
-  padding: 8px 10px; /* Increased padding */
+  padding: 8px 10px;
   background: var(--bg-light);
   border: 1px solid var(--border);
   border-radius: 2px;
@@ -372,59 +404,44 @@ html, body {
   background: rgba(255, 215, 0, 0.05);
 }
 
-.achievement-item.unlocked .achievement-icon {
-  color: var(--gold);
-}
+.achievement-item.unlocked .achievement-icon { color: var(--gold); }
 
 .achievement-item.new {
   animation: achievement-glow 1s ease-out;
 }
 
 @keyframes achievement-glow {
-  0% {
-    box-shadow: 0 0 10px var(--gold);
-    border-color: var(--gold);
-  }
-  100% {
-    box-shadow: none;
-  }
+  0% { box-shadow: 0 0 10px var(--gold); border-color: var(--gold); }
+  100% { box-shadow: none; }
 }
 
 .achievement-name {
-  font-size: 14px; /* Increased from 11px */
+  font-size: 14px;
   color: var(--crt-green);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.achievement-icon {
-  font-size: 15px; /* Increased from 12px */
-}
+.achievement-icon { font-size: 15px; }
 
 .achievement-desc {
-  font-size: 12px; /* Increased from 10px */
+  font-size: 12px;
   color: var(--crt-green-dim);
   margin-top: 3px;
 }
 
 .achievement-reward {
-  font-size: 12px; /* Increased from 10px */
+  font-size: 12px;
   color: var(--warning);
   margin-top: 3px;
 }
 
-.empty-message {
-  color: var(--crt-green-dim);
-  font-style: italic;
-  padding: 5px;
-}
-
-/* Stats in sidebar */
+/* Stats */
 .stats-list {
   display: flex;
   flex-direction: column;
-  gap: 6px; /* Increased gap */
+  gap: 6px;
 }
 
 .stat-item {
@@ -433,27 +450,21 @@ html, body {
   padding: 5px 0;
 }
 
-.stat-label {
-  color: var(--crt-green-dim);
-}
-
-.stat-value {
-  color: var(--crt-green);
-  font-weight: bold;
-}
+.stat-label { color: var(--crt-green-dim); }
+.stat-value { color: var(--crt-green); font-weight: bold; }
 
 /* ========================================
-   Achievement Toast (Popup)
+   Achievement Toast
    ======================================== */
 
 #achievement-toast {
   position: fixed;
-  top: 25px; /* Increased from 20px */
-  right: 25px; /* Increased from 20px */
+  top: 25px;
+  right: 25px;
   display: flex;
   align-items: center;
-  gap: 16px; /* Increased gap */
-  padding: 20px 25px; /* Increased padding */
+  gap: 16px;
+  padding: 20px 25px;
   background: var(--bg);
   border: 2px solid var(--gold);
   box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
@@ -461,38 +472,21 @@ html, body {
   animation: toast-in 0.5s ease-out;
 }
 
-#achievement-toast.hidden {
-  display: none;
-}
-
-#achievement-toast.fade-out {
-  animation: toast-out 0.5s ease-in forwards;
-}
+#achievement-toast.hidden { display: none; }
+#achievement-toast.fade-out { animation: toast-out 0.5s ease-in forwards; }
 
 @keyframes toast-in {
-  0% {
-    opacity: 0;
-    transform: translateX(100px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  0% { opacity: 0; transform: translateX(100px); }
+  100% { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes toast-out {
-  0% {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(100px);
-  }
+  0% { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(100px); }
 }
 
 .toast-icon {
-  font-size: 40px; /* Increased from 32px */
+  font-size: 40px;
   animation: toast-bounce 0.5s ease-out;
 }
 
@@ -504,24 +498,24 @@ html, body {
 .toast-content {
   display: flex;
   flex-direction: column;
-  gap: 4px; /* Increased gap */
+  gap: 4px;
 }
 
 .toast-title {
-  font-size: 12px; /* Increased from 10px */
+  font-size: 12px;
   color: var(--crt-green-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .toast-name {
-  font-size: 18px; /* Increased from 14px */
+  font-size: 18px;
   color: var(--gold);
   font-weight: bold;
 }
 
 .toast-reward {
-  font-size: 15px; /* Increased from 12px */
+  font-size: 15px;
   color: var(--warning);
 }
 
@@ -529,20 +523,10 @@ html, body {
    States & Modifiers
    ======================================== */
 
-/* Danger state - enemy close */
-#terminal.danger {
-  --glow-blur: 4px;
-}
+#terminal.danger { --glow-blur: 4px; }
+#terminal.danger .vignette { --vignette-intensity: 0.35; }
 
-#terminal.danger .vignette {
-  --vignette-intensity: 0.35;
-}
-
-/* Error flash */
-#terminal.error-flash {
-  animation: error-shake 0.2s ease-out;
-}
-
+#terminal.error-flash { animation: error-shake 0.2s ease-out; }
 @keyframes error-shake {
   0%, 100% { transform: translate(0, 0); }
   25% { transform: translate(-2px, 1px); }
@@ -550,11 +534,7 @@ html, body {
   75% { transform: translate(-1px, 2px); }
 }
 
-/* Success flash */
-#terminal.success-flash {
-  animation: success-glow 0.3s ease-out;
-}
-
+#terminal.success-flash { animation: success-glow 0.3s ease-out; }
 @keyframes success-glow {
   0% { filter: brightness(1); }
   50% { filter: brightness(1.3); }
@@ -565,52 +545,31 @@ html, body {
    Responsive
    ======================================== */
 
-@media (max-width: 1100px) { /* Increased break point */
+@media (max-width: 1200px) {
   #main-layout {
     flex-direction: column;
     max-height: none;
   }
   
-  #achievements-sidebar {
+  #achievements-sidebar, #system-panel {
     width: 100%;
     height: auto;
-    max-height: 200px; /* Increased */
+    max-height: 200px;
     flex-direction: row;
     flex-wrap: wrap;
   }
   
-  .sidebar-section {
+  .sidebar-section, .system-log-container {
     flex: 1;
-    min-width: 200px; /* Increased */
+    min-width: 200px;
   }
 }
 
-@media (max-width: 700px) { /* Increased break point */
-  #main-layout {
-    padding: 10px;
-    gap: 10px;
-  }
-  
-  #terminal {
-    padding: 16px;
-  }
-  
-  #hud {
-    gap: 10px;
-  }
-  
-  .resource .bar {
-    width: 50px;
-  }
-  
-  #achievements-sidebar {
-    display: none;
-  }
-  
-  #achievement-toast {
-    top: auto;
-    bottom: 30px;
-    right: 15px;
-    left: 15px;
-  }
+@media (max-width: 700px) {
+  #main-layout { padding: 10px; gap: 10px; }
+  #terminal { padding: 16px; }
+  #hud { gap: 10px; }
+  .resource .bar { width: 50px; }
+  #achievements-sidebar, #system-panel { display: none; }
+  #achievement-toast { top: auto; bottom: 30px; right: 15px; left: 15px; }
 }
